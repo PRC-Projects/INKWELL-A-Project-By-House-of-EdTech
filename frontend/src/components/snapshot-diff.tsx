@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, X } from "lucide-react";
+import { Download, X, Sparkles } from "lucide-react";
 
 interface DiffPayload {
   snapshot: { label: string; createdAt: string; text: string };
@@ -38,6 +38,8 @@ export function SnapshotDiff({
   onClose: () => void;
 }) {
   const [data, setData] = useState<DiffPayload | null>(null);
+  const [explanation, setExplanation] = useState<string | null>(null);
+  const [explaining, setExplaining] = useState(false);
   useEffect(() => {
     fetch(`/api/documents/${documentId}/snapshots/${snapshotId}`)
       .then((r) => r.json())
@@ -46,6 +48,26 @@ export function SnapshotDiff({
 
   if (!data) return null;
   const diff = diffLines(data.snapshot.text, data.current.text);
+
+  const explainDiff = async () => {
+    setExplaining(true);
+    setExplanation(null);
+    try {
+      const r = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "explain-diff",
+          before: data.snapshot.text.slice(0, 20_000),
+          after: data.current.text.slice(0, 20_000),
+        }),
+      });
+      const j = await r.json();
+      setExplanation(j.result || j.error || "(no response)");
+    } finally {
+      setExplaining(false);
+    }
+  };
 
   const downloadMd = () => {
     const md = `# ${data.current.title}\n\n_Diff vs. snapshot "${data.snapshot.label}" (${new Date(data.snapshot.createdAt).toLocaleString()})_\n\n` +
@@ -66,10 +88,19 @@ export function SnapshotDiff({
             <p className="font-display text-lg" data-testid="snapshot-diff-label">{data.snapshot.label}</p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={explainDiff} disabled={explaining} data-testid="snapshot-diff-explain">
+              <Sparkles className="h-4 w-4" /> {explaining ? "Explaining…" : "AI explain"}
+            </Button>
             <Button variant="outline" size="sm" onClick={downloadMd} data-testid="snapshot-diff-export"><Download className="h-4 w-4" /> Markdown</Button>
             <Button variant="ghost" size="icon" onClick={onClose} data-testid="snapshot-diff-close"><X className="h-4 w-4" /></Button>
           </div>
         </div>
+        {explanation !== null && (
+          <div className="px-4 py-3 border-b border-border bg-secondary/40" data-testid="snapshot-diff-explanation">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">AI Summary</p>
+            <p className="text-sm">{explanation}</p>
+          </div>
+        )}
         <div className="overflow-y-auto p-4 font-mono text-xs" data-testid="snapshot-diff-body">
           {diff.map((d, i) => (
             <div

@@ -49,7 +49,18 @@ export const registerSchema = z.object({
   name: z.string().trim().min(1).max(80).optional(),
 });
 
-export const aiSchema = z.object({
-  action: z.enum(["summarize", "grammar"]),
-  text: z.string().min(1).max(20_000),
-});
+export const aiSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("summarize"),
+    text: z.string().min(1).max(20_000),
+  }),
+  z.object({
+    action: z.literal("grammar"),
+    text: z.string().min(1).max(20_000),
+  }),
+  z.object({
+    action: z.literal("explain-diff"),
+    before: z.string().min(0).max(20_000),
+    after: z.string().min(0).max(20_000),
+  }),
+]);

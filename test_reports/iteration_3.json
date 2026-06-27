@@ -1,0 +1,33 @@
+{
+  "summary": "Round 4 quick smoke test. /login redirect + csrf cookie are correct. However TWO blockers prevent any authenticated UI flow from being exercised: (1) Postgres is NOT running at localhost:5432, so credential login fails with Configuration error; (2) /login-form client component renders forever as 'Preparing…' — hidden csrfToken input stays empty even though /api/auth/csrf returns 200 from the browser. As a result none of the dashboard / doc / snapshot / AI / presence / RBAC scenarios could be reached.",
+  "tested_scope": ["frontend", "backend", "auth", "integration"],
+  "passed": [
+    "/api/auth/csrf returns 200 with csrfToken",
+    "GET /login 302-redirects to /login-form and sets __Host-authjs.csrf-token cookie (Secure, Path=/) — visible in browser cookie jar",
+    "GET /api/documents without session → 401 (unauth API guard)",
+    "Hocuspocus server reachable on localhost:1234 (HTTP 200, node /app/hocuspocus/server.cjs is running, spawned by backend)",
+    "Footer renders with footer-author-name='Pritam Roy Choudhury', GitHub + LinkedIn links visible on /login-form"
+  ],
+  "failed": [
+    {
+      "area": "database / auth",
+      "issue": "Postgres is not running at localhost:5432. Prisma throws 'Can't reach database server at localhost:5432' inside NextAuth authorize(). Result: POST /api/auth/callback/credentials with valid csrfToken + correct creds (test@inkwell.dev / test1234) → 302 to /api/auth/error?error=Configuration. NO test user can log in.",
+      "evidence": "supervisorctl shows no postgres process (only mongodb, backend, frontend, hocuspocus). frontend.err.log: 'prisma:error … Can't reach database server at localhost:5432'. curl POST callback returns redirect to /api/auth/error?error=Configuration.",
+      "priority": "HIGH"
+    },
+    {
+      "area": "frontend / login-form",
+      "issue": "Login submit button stays disabled with text 'Preparing…' indefinitely. Hidden <input name=csrfToken> value remains empty string. The useEffect fetch to /api/auth/csrf does not appear to populate React state (no setErr triggered either). From an injected fetch in the same page context /api/auth/csrf returns 200 with a valid token, so the network is fine — looks like a client hydration / dev-mode (Turbopack) issue with the useEffect path. This blocks the entire UI sign-in flow even if Postgres were up.",
+      "evidence": "page.evaluate(\"document.querySelector('input[name=csrfToken]').value\") → '' (NONE). Button data-testid='login-submit' is disabled, innerText='Preparing…' after 20s. Browser cookies show __Host-authjs.csrf-token is present. Console only shows webpack-hmr WS 502 noise, no app errors, and login-error testid is not rendered.",
+      "priority": "HIGH"
+    }
+  ],
+  "action_items": [
+    "Start/restore Postgres (DATABASE_URL=postgresql://docedit:docedit@localhost:5432/docedit). The previous rounds clearly had it running; it appears to have died or never been re-launched after a backend restart. Add it to supervisord (or whatever supervises pg) so it auto-recovers.",
+    "Investigate why /login-form's useEffect → setCsrf path does not run in the served build. Two likely root causes: (a) JS bundle for /login-form failing to hydrate (check that the page actually mounts — add a console.log in useEffect to confirm); (b) React StrictMode double-invoke + Turbopack dev cache returning a stale/failed promise. A quick fix is to either fetch the csrfToken on the server (Server Component) and pass it as a prop, OR render the form fully unguarded and let Auth.js itself validate the token; do NOT gate the submit button on local csrf state.",
+    "After both fixes land, full presence / RBAC / AI test (the bulk of this iteration) needs to be re-run from scratch."
+  ],
+  "success_rate": {"backend": "60% (3/5 reachable checks pass; auth + tenant-isolation untested due to no working login)", "frontend": "10% (only /login redirect + footer verified; every authenticated flow blocked)"},
+  "retest_needed": true,
+  "full_testing_deferred": true
+}

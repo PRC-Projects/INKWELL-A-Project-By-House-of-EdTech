@@ -4,66 +4,64 @@
 
 Build a Local-First, Collaborative Document Editor using **Next.js 16 (App
 Router, TypeScript)**, **PostgreSQL + Prisma**, **Redux Toolkit**, **Yjs + IndexedDB**,
-**Tailwind + shadcn/ui**, **NextAuth**, and **Google Gemini**. Features:
-
-1. Local-first edit + save (zero UI blocking, edits work offline)
-2. Background sync queue + connection status indicator
-3. Snapshot-based version history (timeline + safe restore)
-4. RBAC: Owner, Editor, Viewer — Viewers cannot push state updates
-5. Smart AI Assistant powered by Gemini: summarize + grammar fix
-6. Footer with name "Pritam Roy Choudhury" + GitHub + LinkedIn links
-7. Strict Zod validation of sync payloads to prevent OOM
-8. Tenant isolation via ORM scoping
-9. No client-side typing lag; SSR + code splitting
-10. Solve CRDT race-conditions, not a CRUD app
+**Tailwind + shadcn/ui**, **NextAuth**, and **Google Gemini**. Solve CRDT race
+conditions, not basic CRUD.
 
 ## Architecture
 
 - **Next.js 16** on port 3000 — pages + every functional `/api/*` route.
-- **FastAPI sidecar** on port 8001 — (a) hosts `/__internal/ai` that calls
-  Gemini via emergentintegrations; (b) reverse-proxies all other `/api/*` to
-  Next.js (K8s ingress only routes `/api/*` to 8001 in this environment).
+- **FastAPI sidecar** on port 8001:
+  - reverse-proxies HTTP `/api/*` → Next.js on :3000
+  - bridges WebSocket `/api/hocus` → Hocuspocus on :1234
+  - hosts `/__internal/ai` (Gemini via emergentintegrations)
+- **Hocuspocus** on port 1234 (awareness + low-latency relay layer over the
+  same Y.Doc; **does NOT persist** — HTTP sync remains source of truth).
 - **PostgreSQL** on port 5432 (`docedit/docedit/docedit`).
 
-### CRDT race-condition strategy
+### Three layers acting on the same Y.Doc (deterministic by design)
 
-1. Every local edit is captured by Yjs and persisted to IndexedDB
-   immediately — typing never blocks on the network.
-2. The sync engine tags each update with `(clientId, clock)`. The Postgres
-   `Update` table has `UNIQUE(documentId, clientId, clock)` so retries are
-   idempotent.
-3. The `POST /api/.../sync` endpoint runs in a SERIALIZABLE transaction:
-   it reads the doc state, applies new updates, writes back. CRDT
-   commutativity guarantees the merged result is identical regardless of
-   transaction ordering. Concurrent writers never overwrite each other.
-4. The same endpoint returns a diff for the client's current state vector
-   so the client picks up any concurrent edits that landed between its pull
-   and push.
-5. Snapshots restore *via the same sync pipeline*: a restore is just one
-   more CRDT update — offline edits made since the snapshot are NOT
-   silently overwritten; they remain in the doc's history.
+1. **IndexedDB** — local persistence; mirrors every edit immediately.
+2. **HTTP sync engine** — Redux queue → POST `/api/.../sync` (SERIALIZABLE
+   tx, unique `(documentId, clientId, clock)` for idempotency). Authoritative
+   persistence to Postgres.
+3. **Hocuspocus WebSocket** — awareness + live relay. Pumps Y.Doc updates
+   between connected clients via `Y.applyUpdate`, which is op-ID-idempotent —
+   the same update applied via HTTP path and again via WS path is a no-op.
+   Awareness state (cursor positions, user labels) is ephemeral, lost on
+   disconnect, and never touches Postgres.
 
-## What's implemented (2026-02-27)
+## What's implemented (round 4 — current)
 
 - Next.js 16 + Prisma + Postgres + NextAuth Credentials wired end-to-end
-- Yjs CRDT editor with IndexedDB persistence and live sync engine in Redux
-- Background sync queue with retry, idempotent server-side dedup
-- Snapshots + safe restore that funnels through the sync pipeline
-- RBAC: Owner / Editor / Viewer roles, viewers blocked at the route layer
-- Smart AI Assistant (Gemini via Emergent universal LLM key) — summarize + grammar
-- Zod validation on every API boundary; size caps on update + state bytes
+- `/login` Route Handler → `/login-form` redirect with `__Host-authjs.csrf-token`
+  pre-seeded — eliminates the browser CSRF race
+- Yjs CRDT editor with IndexedDB persistence and a Redux-driven sync engine
+- Snapshots + safe restore funneled through the sync pipeline
+- **Per-snapshot diff modal** with line-level visual diff + Markdown export
+- **AI "Explain this diff"** — Gemini narrates additions/deletions in 2-3 sentences
+- RBAC: Owner / Editor / Viewer (viewers blocked at the route layer)
+- Smart AI Assistant (summarize + grammar)
+- **Hocuspocus presence** — cursor labels coloured by user id, presence
+  badges at top of editor, live "N other users" indicator
+- Zod validation on every API boundary; OOM caps on update + state bytes
 - Connection status indicator (online / offline / syncing / error)
 - Footer with name + GitHub + LinkedIn
 
+## Service map
+
+| Service      | Port | Source                              |
+| ------------ | ---- | ----------------------------------- |
+| Next.js      | 3000 | `/app/frontend` (`yarn start`)      |
+| FastAPI side | 8001 | `/app/backend/server.py`            |
+| Hocuspocus   | 1234 | `/app/hocuspocus/server.cjs` (spawned by `server.py` startup) |
+| PostgreSQL   | 5432 | local cluster (spawned by `server.py` startup) |
+
+External `/api/*` traffic → K8s ingress → FastAPI :8001 → either Next.js
+:3000 (HTTP) or Hocuspocus :1234 (WebSocket).
+
 ## Backlog (P1)
 
-- Multi-user real-time presence (cursors) via WebSocket / Hocuspocus
-- Document export (Markdown, PDF)
-- Per-snapshot diff preview before restore
-- Audit log of permission changes
-
-## Next action items
-
-- Run the testing agent end-to-end on the auth + sync + RBAC flows
-- Add document export to Markdown
-- Wire WebSocket-based presence for live collaboration
+- Per-user audit log of permission changes
+- Document export to PDF
+- Per-snapshot diff with word-level granularity
+- Conflict-free rich-text (y-prosemirror) for tables/lists

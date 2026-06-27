@@ -1,46 +1,34 @@
 """
-FastAPI sidecar — minimal companion service to the Next.js app.
+FastAPI sidecar — bridges /api/* HTTP traffic to Next.js on :3000 and
+/api/hocus WebSocket traffic to the Hocuspocus presence server on :1234.
 
-Why this exists:
-  - The K8s ingress in this environment routes ALL `/api/*` traffic to
-    port 8001. Next.js's app-router API routes live on port 3000.
-  - So we use this FastAPI process as a transparent reverse proxy for
-    `/api/*` → `http://localhost:3000/api/*` (preserving method, headers,
-    body, cookies).
-  - We ALSO own one internal route — `/__internal/ai` — which is called by
-    Next.js server-side. It uses the Emergent universal LLM key via the
-    Python-only `emergentintegrations` library to talk to Gemini.
-
-Production note:
-  In a real deployment, the Next.js app would be served behind nginx that
-  routes /api directly into Next.js — no proxy hop needed. The AI sidecar
-  would still be its own service, but Next.js would call it over a
-  service-mesh URL. The code split between Next.js and this sidecar is
-  what matters; the proxy hop is a preview-environment quirk.
+Hocuspocus is launched as a background Node process at startup (no supervisor
+entry available in this read-only environment). The HTTP /api/documents/:id/sync
+path on Next.js remains the SINGLE source of truth for persistence — Hocuspocus
+is awareness + low-latency relay only and never writes to disk.
 """
+from __future__ import annotations
+
+import asyncio
 import os
 import subprocess
 import time
 from typing import Any
 
 import httpx
+import websockets
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, Response, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 load_dotenv()
 
 NEXT_ORIGIN = os.environ.get("NEXT_ORIGIN", "http://localhost:3000")
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+HOCUS_PORT = int(os.environ.get("HOCUS_PORT", "1234"))
 
 
 def _ensure_postgres_running() -> None:
-    """Best-effort: bring up the local Postgres cluster if it isn't running.
-
-    Supervisor in this container is read-only so we can't add a dedicated
-    program for Postgres. We instead start it on import here, idempotently.
-    """
     try:
         out = subprocess.run(
             ["pg_isready", "-h", "localhost", "-p", "5432"],
@@ -56,7 +44,6 @@ def _ensure_postgres_running() -> None:
              "/usr/lib/postgresql/15/bin/pg_ctl -D /etc/postgresql/15/main -l /tmp/pglog start"],
             check=False, capture_output=True, text=True, timeout=20,
         )
-        # give it a moment to accept connections
         for _ in range(10):
             r = subprocess.run(["pg_isready", "-h", "localhost", "-p", "5432"], capture_output=True)
             if r.returncode == 0:
@@ -66,26 +53,61 @@ def _ensure_postgres_running() -> None:
         pass
 
 
+def _ensure_hocuspocus_running() -> None:
+    """Launch the Hocuspocus Node server in background if not already up."""
+    try:
+        with subprocess.Popen(
+            ["nc", "-z", "127.0.0.1", str(HOCUS_PORT)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        ) as p:
+            p.wait(timeout=2)
+            if p.returncode == 0:
+                return
+    except Exception:
+        pass
+    try:
+        subprocess.Popen(
+            ["node", "/app/hocuspocus/server.cjs"],
+            stdout=open("/tmp/hocus.out.log", "ab"),
+            stderr=open("/tmp/hocus.err.log", "ab"),
+            env={**os.environ, "HOCUS_PORT": str(HOCUS_PORT)},
+            start_new_session=True,
+        )
+        # wait briefly for it to bind
+        for _ in range(20):
+            try:
+                with subprocess.Popen(
+                    ["nc", "-z", "127.0.0.1", str(HOCUS_PORT)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                ) as p2:
+                    p2.wait(timeout=1)
+                    if p2.returncode == 0:
+                        return
+            except Exception:
+                pass
+            time.sleep(0.25)
+    except Exception:
+        pass
+
+
 _ensure_postgres_running()
+_ensure_hocuspocus_running()
+
 
 app = FastAPI(title="Inkwell sidecar")
-
-# Single shared client (keepalive helps for short proxy hops).
 _client = httpx.AsyncClient(timeout=120.0, follow_redirects=False)
 
 
 class AIRequest(BaseModel):
-    action: str = Field(pattern=r"^(summarize|grammar)$")
-    text: str = Field(min_length=1, max_length=20_000)
+    action: str = Field(pattern=r"^(summarize|grammar|explain-diff)$")
+    text: str | None = Field(default=None, max_length=20_000)
+    before: str | None = Field(default=None, max_length=20_000)
+    after: str | None = Field(default=None, max_length=20_000)
 
 
 @app.post("/__internal/ai")
 async def internal_ai(payload: AIRequest) -> dict[str, Any]:
-    """Called server-side by Next.js /api/ai. Not exposed externally."""
     if not EMERGENT_LLM_KEY:
         raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY not configured")
 
-    # Local import keeps cold-start of proxy fast even if integrations lib is heavy.
     from emergentintegrations.llm.chat import LlmChat, UserMessage
 
     system = (
@@ -93,15 +115,28 @@ async def internal_ai(payload: AIRequest) -> dict[str, Any]:
         "no preamble, no markdown headings, no commentary."
     )
     if payload.action == "summarize":
+        if not payload.text:
+            raise HTTPException(status_code=400, detail="text required for summarize")
         prompt = (
             "Summarize the following document in 3-6 sentences. Preserve key facts and tone.\n\n"
             f"---\n{payload.text}\n---"
         )
-    else:  # grammar
+    elif payload.action == "grammar":
+        if not payload.text:
+            raise HTTPException(status_code=400, detail="text required for grammar")
         prompt = (
             "Rewrite the following passage with grammar, punctuation, and clarity corrected. "
             "Preserve voice, paragraph structure, and meaning. Output the corrected text only.\n\n"
             f"---\n{payload.text}\n---"
+        )
+    else:  # explain-diff
+        if payload.before is None or payload.after is None:
+            raise HTTPException(status_code=400, detail="before and after required for explain-diff")
+        prompt = (
+            "Two versions of a document are below. In 2-3 plain sentences, explain what changed "
+            "between BEFORE and AFTER (additions, deletions, tone/structure shifts). Be specific "
+            "and editorial — do NOT enumerate every line. No markdown headings, no preamble.\n\n"
+            f"=== BEFORE ===\n{payload.before}\n\n=== AFTER ===\n{payload.after}\n"
         )
 
     chat = LlmChat(
@@ -112,8 +147,6 @@ async def internal_ai(payload: AIRequest) -> dict[str, Any]:
 
     parts: list[str] = []
     try:
-        # Streaming is the default per playbook; we collect into a single response
-        # because the Next.js /api/ai contract is JSON, not SSE.
         from emergentintegrations.llm.chat import TextDelta, StreamDone
 
         async for ev in chat.stream_message(UserMessage(text=prompt)):
@@ -121,18 +154,61 @@ async def internal_ai(payload: AIRequest) -> dict[str, Any]:
                 parts.append(ev.content)
             elif isinstance(ev, StreamDone):
                 break
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:
         raise HTTPException(status_code=502, detail=f"LLM error: {exc}") from exc
 
     return {"result": "".join(parts).strip(), "action": payload.action}
 
 
-# ----------------- Reverse proxy for /api/* -> Next.js -----------------
+# ---------------------------- HTTP reverse proxy ----------------------------
 
 _HOP_BY_HOP = {
     "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
     "te", "trailers", "transfer-encoding", "upgrade", "content-encoding", "content-length",
 }
+
+
+@app.websocket("/api/hocus")
+async def hocus_ws_proxy(ws: WebSocket) -> None:
+    """Bridge a browser WebSocket to the Hocuspocus server on localhost:1234."""
+    await ws.accept(subprotocol=None)
+    try:
+        async with websockets.connect(
+            f"ws://localhost:{HOCUS_PORT}",
+            open_timeout=5,
+            max_size=8 * 1024 * 1024,
+        ) as upstream:
+            async def client_to_upstream() -> None:
+                try:
+                    while True:
+                        msg = await ws.receive()
+                        if msg.get("type") == "websocket.disconnect":
+                            break
+                        if "bytes" in msg and msg["bytes"] is not None:
+                            await upstream.send(msg["bytes"])
+                        elif "text" in msg and msg["text"] is not None:
+                            await upstream.send(msg["text"])
+                except WebSocketDisconnect:
+                    pass
+
+            async def upstream_to_client() -> None:
+                try:
+                    async for frame in upstream:
+                        if isinstance(frame, bytes):
+                            await ws.send_bytes(frame)
+                        else:
+                            await ws.send_text(frame)
+                except websockets.ConnectionClosed:
+                    pass
+
+            await asyncio.gather(client_to_upstream(), upstream_to_client(), return_exceptions=True)
+    except (websockets.WebSocketException, OSError):
+        pass
+    finally:
+        try:
+            await ws.close()
+        except Exception:
+            pass
 
 
 @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"])
@@ -141,9 +217,6 @@ async def proxy(path: str, request: Request) -> Response:
     if request.url.query:
         target = f"{target}?{request.url.query}"
 
-    # IMPORTANT: NextAuth signs / verifies session cookies using the request
-    # `host` and the X-Forwarded-* headers. We must preserve them so that
-    # secure cookie attributes (__Secure- prefix) and CSRF host-binding work.
     incoming = request.headers
     original_host = incoming.get("host", "")
     proto = incoming.get("x-forwarded-proto") or ("https" if request.url.scheme == "https" else "http")
@@ -152,10 +225,8 @@ async def proxy(path: str, request: Request) -> Response:
     headers: dict[str, str] = {}
     for k, v in incoming.items():
         kl = k.lower()
-        if kl in _HOP_BY_HOP:
+        if kl in _HOP_BY_HOP or kl == "host":
             continue
-        if kl == "host":
-            continue  # we set it explicitly below
         headers[k] = v
     if original_host:
         headers["host"] = original_host
@@ -167,26 +238,14 @@ async def proxy(path: str, request: Request) -> Response:
         headers["x-forwarded-for"] = f"{existing}, {client_ip}" if existing else client_ip
 
     body = await request.body()
-
     try:
         upstream = await _client.request(
-            method=request.method,
-            url=target,
-            headers=headers,
-            content=body,
+            method=request.method, url=target, headers=headers, content=body,
         )
     except httpx.ConnectError:
         raise HTTPException(status_code=502, detail="Next.js dev server not ready") from None
 
-    # IMPORTANT: do NOT collapse headers into a dict. NextAuth issues multiple
-    # Set-Cookie headers in a single response (csrf-token, callback-url,
-    # session-token). A dict would drop all but the last. We rebuild the
-    # response with the raw header list from httpx so every header line is
-    # preserved exactly — Set-Cookie included.
     resp = Response(content=upstream.content, status_code=upstream.status_code)
-    # Starlette/FastAPI inits headers from kwargs and adds content-length/type.
-    # We then drop the auto-generated content-length (it may be wrong if the
-    # upstream chunked it) and append every upstream header explicitly.
     resp.raw_headers = [
         (k.lower().encode("latin-1"), v.encode("latin-1"))
         for k, v in upstream.headers.multi_items()
@@ -197,4 +256,4 @@ async def proxy(path: str, request: Request) -> Response:
 
 @app.get("/__internal/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok"}
+    return {"status": "ok", "hocus_port": str(HOCUS_PORT)}

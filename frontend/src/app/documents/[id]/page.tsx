@@ -46,7 +46,7 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
   useEffect(() => { if (id && status === "authenticated") void load(id); }, [id, status]);
 
   // Pull the same Y.Doc handle the Editor will use so siblings (AI, history) can read it.
-  const { doc } = useYDoc(id ?? "");
+  const { doc, presence, wsConnected } = useYDoc(id ?? "");
 
   const saveTitle = async () => {
     if (!data || !id || titleDraft === data.title) return;
@@ -85,6 +85,15 @@ export default function DocumentPage({ params }: { params: Promise<{ id: string 
         </div>
         <div className="flex items-center gap-2 relative">
           <span className="text-xs px-2 py-1 rounded-md bg-secondary uppercase tracking-wide" data-testid="doc-role-badge">{data.role}</span>
+          <div
+            data-testid="presence-indicator"
+            data-ws-connected={wsConnected}
+            className="text-xs px-2 py-1 rounded-md bg-card border border-border flex items-center gap-1.5"
+            title={wsConnected ? `${presence.length} other ${presence.length === 1 ? "user" : "users"} live` : "Presence disconnected"}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${wsConnected ? "bg-emerald-500 animate-pulse-dot" : "bg-zinc-400"}`} />
+            <span data-testid="presence-count">{wsConnected ? presence.length : "—"} live</span>
+          </div>
           <SyncStatus />
           <AIAssistant doc={doc} canEdit={canEdit} />
           <VersionHistory documentId={id} doc={doc} canEdit={canEdit} />

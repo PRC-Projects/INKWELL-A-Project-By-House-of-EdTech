@@ -1,0 +1,14 @@
+{
+  "name": "inkwell-hocuspocus",
+  "version": "1.0.0",
+  "private": true,
+  "main": "server.cjs",
+  "scripts": {
+    "start": "node server.cjs"
+  },
+  "dependencies": {
+    "@hocuspocus/server": "^2.15.2",
+    "y-protocols": "^1.0.7",
+    "yjs": "^13.6.31"
+  }
+}
