@@ -2,10 +2,11 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { History, RotateCcw } from "lucide-react";
+import { History, RotateCcw, Eye } from "lucide-react";
 import { toast } from "sonner";
 import * as Y from "yjs";
 import { base64ToBytes } from "@/lib/yjs-client";
+import { SnapshotDiff } from "@/components/snapshot-diff";
 
 interface Snapshot {
   id: string;
@@ -27,6 +28,7 @@ export function VersionHistory({
   const [items, setItems] = useState<Snapshot[]>([]);
   const [label, setLabel] = useState("");
   const [creating, setCreating] = useState(false);
+  const [diffId, setDiffId] = useState<string | null>(null);
 
   const load = async () => {
     const r = await fetch(`/api/documents/${documentId}/snapshots`);
@@ -121,18 +123,24 @@ export function VersionHistory({
                   </p>
                 </div>
                 {canEdit && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => restore(s.id)}
-                    data-testid={`snapshot-restore-${s.id}`}
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" /> Restore
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button size="icon" variant="ghost" onClick={() => setDiffId(s.id)} data-testid={`snapshot-diff-${s.id}`} title="Preview diff">
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => restore(s.id)}
+                      data-testid={`snapshot-restore-${s.id}`}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" /> Restore
+                    </Button>
+                  </div>
                 )}
               </div>
             ))}
           </div>
+          {diffId && <SnapshotDiff documentId={documentId} snapshotId={diffId} onClose={() => setDiffId(null)} />}
         </div>
       )}
     </div>

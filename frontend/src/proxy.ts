@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 
-const PUBLIC = ["/", "/login", "/register"];
+const PUBLIC = ["/", "/login", "/login-form", "/register"];
 
 // Middleware enforces auth on /dashboard and /documents/*. API routes do their
 // own server-side auth() check (see route handlers) so they can return JSON 401.
