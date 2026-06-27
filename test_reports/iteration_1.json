@@ -1,0 +1,35 @@
+{
+  "summary": "First end-to-end test pass on Inkwell (Next.js 16 + FastAPI proxy + Postgres + Prisma). Landing page, footer, registration, and unauthenticated API guards all work. CRITICAL BLOCKER: NextAuth credentials login is broken end-to-end — the credentials callback returns 302 and DOES set a __Secure-authjs.session-token cookie, but every subsequent /api/auth/session call returns null and dashboard middleware bounces the user back to /login. This blocks every authenticated flow (dashboard, doc creation, editor, sync, snapshots, AI assistant, RBAC viewer enforcement, tenant isolation).",
+  "tested_scope": ["frontend", "backend", "auth", "integration"],
+  "passed": [
+    "Landing / renders with data-testid home-cta-signup (=/register), home-cta-login (=/login)",
+    "Footer present on every page: footer-author-name='Pritam Roy Choudhury', github → https://github.com/PRC-Projects/, linkedin → https://www.linkedin.com/in/pritam-roy-choudhury/",
+    "GET /api/documents unauthenticated → HTTP 401 {error:Unauthorized} (guard works)",
+    "POST /api/auth/register with new email → HTTP 201 with user object (user persisted in Postgres, bcrypt hash $2a$10$ length 60)",
+    "Seeded users present in DB: test@inkwell.dev, editor@inkwell.dev, viewer@inkwell.dev with valid bcrypt hashes",
+    "Malformed JSON to /api/documents/{id}/sync without session → 401 (guard short-circuits before payload parse — Zod path not directly verifiable while auth is broken)",
+    "FastAPI sidecar reverse-proxies /api/* to Next.js on :3000 correctly (status codes propagate)"
+  ],
+  "failed": [
+    {
+      "area": "auth / NextAuth credentials login",
+      "issue": "Login appears to succeed (POST /api/auth/callback/credentials returns 302 with Set-Cookie: __Secure-authjs.session-token=...), but immediately afterwards GET /api/auth/session returns null and the /dashboard route (guarded by middleware) redirects back to /login. Verified for both the seeded user test@inkwell.dev/test1234 AND a freshly registered user. Playwright login → /dashboard times out; manual screenshot after navigating to /dashboard still shows the /login page. This means the issued JWT session cookie cannot be decoded on subsequent requests — almost certainly a NEXTAUTH_SECRET / AUTH_SECRET / cookie-prefix mismatch between the signing path and the verifying path (e.g. dev-mode secret rotation, or middleware reading a different secret/cookie name than the route handlers). Next.js logs confirm: POST /api/auth/callback/credentials 302 → GET /api/auth/session 200 (body=null) → GET /api/documents 401.",
+      "evidence": "curl headers: 'set-cookie: __Secure-authjs.session-token=eyJhbGc...' issued, but `/api/auth/session` returns literal `null` and `/api/documents` returns 401 with same cookie jar. Playwright screenshot after visiting /dashboard post-login shows the login form again (middleware redirect).",
+      "priority": "HIGH"
+    },
+    {
+      "area": "all authenticated flows (blocked by auth)",
+      "issue": "Could not execute the following test cases because login does not establish a usable session: create document from dashboard, editor surface + sync-status transitions, content persistence across reload, version-history snapshot save+restore, AI Assistant summarize/grammar (Gemini integration), RBAC viewer enforcement (share-toggle invite + viewer-cannot-push 403 check), offline sync queue behavior, tenant isolation (editor sees 404 on owner's doc), Zod payload guard returning 400/413 instead of 500.",
+      "evidence": "All Playwright steps after login timed out waiting for data-testid='dashboard-title' / 'new-doc-title' / 'editor-surface' etc.",
+      "priority": "HIGH"
+    }
+  ],
+  "action_items": [
+    "Fix NextAuth session decoding. Verify (a) AUTH_SECRET / NEXTAUTH_SECRET are identical and stable across server restarts and used in BOTH lib/auth.ts and any middleware; (b) trustHost:true + AUTH_TRUST_HOST=true are honored under the FastAPI reverse-proxy; (c) the cookie name expected by /api/auth/session and middleware matches the one being issued (__Secure-authjs.session-token under HTTPS); (d) the FastAPI proxy at /app/backend/server.py is not stripping/rewriting the Set-Cookie or Cookie header for the __Secure- prefix; (e) NEXTAUTH_URL matches the external HTTPS origin exactly.",
+    "After auth fix, retest the full authenticated journey: dashboard → create doc → editor type → sync-status online → reload persistence → snapshot save/restore → AI summarize/grammar (allow up to 30s) → share dialog invite viewer@inkwell.dev as VIEWER → sign out → sign in as viewer → verify data-can-edit='false' and doc-role-badge='VIEWER' and that POST /api/documents/{id}/sync as viewer returns 403 'Viewers cannot push state updates' → tenant isolation: editor@inkwell.dev GET on owner's doc returns 404 → Zod guard: oversized/malformed sync payload returns 400/413 → offline queue drain on reconnect.",
+    "Verify the FastAPI sidecar /__internal/ai route is reachable from Next.js (current /__internal/health returned 200 from localhost) — should be fine once auth unblocks."
+  ],
+  "success_rate": {"backend": "60% (unauth guards + register OK; authenticated routes unverifiable)", "frontend": "20% (landing + footer + login form render OK; dashboard onwards blocked by auth)"},
+  "retest_needed": true,
+  "full_testing_deferred": true
+}

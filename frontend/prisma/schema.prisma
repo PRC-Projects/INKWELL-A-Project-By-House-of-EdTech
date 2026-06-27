@@ -1,0 +1,91 @@
+// Local-First Collaborative Document Editor — Prisma Schema
+// Strict tenant isolation enforced via ORM scoping in every query.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String?
+  password    String
+  createdAt   DateTime @default(now())
+  documents   Document[]      @relation("OwnedDocuments")
+  memberships Membership[]
+  snapshots   Snapshot[]
+  updates     Update[]
+}
+
+model Document {
+  id          String   @id @default(cuid())
+  title       String
+  ownerId     String
+  owner       User     @relation("OwnedDocuments", fields: [ownerId], references: [id], onDelete: Cascade)
+  // Authoritative Yjs document state (binary, base64 in JSON column wrapper) - we use Bytes
+  yjsState    Bytes
+  // Monotonically increasing version number for the canonical document
+  stateVector Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  memberships Membership[]
+  snapshots   Snapshot[]
+  updates     Update[]
+
+  @@index([ownerId])
+}
+
+model Membership {
+  id         String   @id @default(cuid())
+  userId     String
+  documentId String
+  role       Role     @default(EDITOR)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentId])
+  @@index([documentId])
+}
+
+// Each successful sync push appends an Update row keyed by clientId+clock to
+// enforce idempotency and resolve race conditions deterministically.
+model Update {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Encoded Yjs incremental update (binary)
+  payload    Bytes
+  // Client-generated identifiers for idempotency
+  clientId   String
+  clock      Int
+  createdAt  DateTime @default(now())
+
+  @@unique([documentId, clientId, clock])
+  @@index([documentId, createdAt])
+}
+
+model Snapshot {
+  id          String   @id @default(cuid())
+  documentId  String
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  label       String
+  // Full Yjs encoded state at the time of snapshot
+  state       Bytes
+  createdAt   DateTime @default(now())
+
+  @@index([documentId, createdAt])
+}
