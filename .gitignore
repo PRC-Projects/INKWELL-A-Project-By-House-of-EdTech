@@ -87,3 +87,9 @@ frontend/.next/dev/cache/turbopack/f37fad94/00000205.sst
 frontend/.next/dev/cache/turbopack/f37fad94/00000292.sst
 frontend/.next/dev/cache/turbopack/f37fad94/00000382.sst
 frontend/.next/dev/cache/turbopack/f37fad94/00000383.sst
+.env
+.env.*
+*.env
+credentials.json
+*.key
+.credentials
