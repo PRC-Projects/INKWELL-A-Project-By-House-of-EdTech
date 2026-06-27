@@ -141,7 +141,31 @@ async def proxy(path: str, request: Request) -> Response:
     if request.url.query:
         target = f"{target}?{request.url.query}"
 
-    headers = {k: v for k, v in request.headers.items() if k.lower() not in _HOP_BY_HOP and k.lower() != "host"}
+    # IMPORTANT: NextAuth signs / verifies session cookies using the request
+    # `host` and the X-Forwarded-* headers. We must preserve them so that
+    # secure cookie attributes (__Secure- prefix) and CSRF host-binding work.
+    incoming = request.headers
+    original_host = incoming.get("host", "")
+    proto = incoming.get("x-forwarded-proto") or ("https" if request.url.scheme == "https" else "http")
+    fwd_host = incoming.get("x-forwarded-host") or original_host
+
+    headers: dict[str, str] = {}
+    for k, v in incoming.items():
+        kl = k.lower()
+        if kl in _HOP_BY_HOP:
+            continue
+        if kl == "host":
+            continue  # we set it explicitly below
+        headers[k] = v
+    if original_host:
+        headers["host"] = original_host
+        headers["x-forwarded-host"] = fwd_host
+    headers["x-forwarded-proto"] = proto
+    client_ip = (request.client.host if request.client else "") or ""
+    if client_ip:
+        existing = headers.get("x-forwarded-for")
+        headers["x-forwarded-for"] = f"{existing}, {client_ip}" if existing else client_ip
+
     body = await request.body()
 
     try:
@@ -154,8 +178,21 @@ async def proxy(path: str, request: Request) -> Response:
     except httpx.ConnectError:
         raise HTTPException(status_code=502, detail="Next.js dev server not ready") from None
 
-    resp_headers = {k: v for k, v in upstream.headers.items() if k.lower() not in _HOP_BY_HOP}
-    return Response(content=upstream.content, status_code=upstream.status_code, headers=resp_headers)
+    # IMPORTANT: do NOT collapse headers into a dict. NextAuth issues multiple
+    # Set-Cookie headers in a single response (csrf-token, callback-url,
+    # session-token). A dict would drop all but the last. We rebuild the
+    # response with the raw header list from httpx so every header line is
+    # preserved exactly — Set-Cookie included.
+    resp = Response(content=upstream.content, status_code=upstream.status_code)
+    # Starlette/FastAPI inits headers from kwargs and adds content-length/type.
+    # We then drop the auto-generated content-length (it may be wrong if the
+    # upstream chunked it) and append every upstream header explicitly.
+    resp.raw_headers = [
+        (k.lower().encode("latin-1"), v.encode("latin-1"))
+        for k, v in upstream.headers.multi_items()
+        if k.lower() not in _HOP_BY_HOP
+    ]
+    return resp
 
 
 @app.get("/__internal/health")

@@ -1,7 +1,5 @@
 "use client";
-import { useState } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,33 +7,59 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { toast } from "sonner";
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [csrf, setCsrf] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      const r = await fetch("/api/auth/csrf");
+      const j = await r.json();
+      setCsrf(j.csrfToken);
+    })();
+  }, []);
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
       const r = await fetch("/api/auth/register", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, name: name || undefined }),
       });
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
         toast.error("Registration failed", { description: j?.error ?? r.statusText });
+        setBusy(false);
         return;
       }
-      const res = await signIn("credentials", { email, password, redirect: false });
-      if (res?.error) {
-        toast.error("Sign-in failed after register");
-        return;
-      }
-      toast.success("Account created");
-      router.push("/dashboard"); router.refresh();
-    } finally { setBusy(false); }
+      // Submit a real form POST to NextAuth credentials callback so the
+      // browser follows the 302 and accepts the session cookie reliably.
+      const fd = new FormData();
+      fd.set("email", email);
+      fd.set("password", password);
+      fd.set("csrfToken", csrf);
+      fd.set("callbackUrl", "/dashboard");
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = "/api/auth/callback/credentials";
+      fd.forEach((v, k) => {
+        const inp = document.createElement("input");
+        inp.type = "hidden";
+        inp.name = k;
+        inp.value = v.toString();
+        form.appendChild(inp);
+      });
+      document.body.appendChild(form);
+      form.submit();
+    } catch {
+      setBusy(false);
+    }
   };
+
   return (
     <div className="container mx-auto px-6 py-16 max-w-md">
       <Card>

@@ -1,26 +1,45 @@
-"use client";
-import { useState } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { headers, cookies } from "next/headers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { toast } from "sonner";
 
-export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    const res = await signIn("credentials", { email, password, redirect: false });
-    setBusy(false);
-    if (res?.error) toast.error("Sign-in failed", { description: "Check your email and password." });
-    else { toast.success("Welcome back"); router.push("/dashboard"); router.refresh(); }
-  };
+/**
+ * Server-rendered login form. We fetch the CSRF token here so it is already
+ * embedded in the HTML by the time the form is interactive. This avoids a
+ * client-side fetch race that broke under the reverse-proxy in this preview.
+ */
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const h = await headers();
+  const c = await cookies();
+  const sp = await searchParams;
+  const proto = h.get("x-forwarded-proto") || "http";
+  const host = h.get("x-forwarded-host") || h.get("host") || "localhost:3000";
+  const origin = `${proto}://${host}`;
+  const cookieHeader = c.getAll().map((x) => `${x.name}=${x.value}`).join("; ");
+
+  let csrfToken = "";
+  try {
+    const r = await fetch(`${origin}/api/auth/csrf`, {
+      headers: { cookie: cookieHeader },
+      cache: "no-store",
+    });
+    if (r.ok) csrfToken = (await r.json()).csrfToken ?? "";
+    // Propagate the csrf cookie set by /api/auth/csrf back to the browser.
+    const setCookies = r.headers.getSetCookie?.() || [];
+    if (setCookies.length > 0) {
+      // We cannot set cookies on a server component response directly without
+      // route handlers. Instead, we render a hidden script that triggers
+      // /api/auth/csrf from the browser side as a fallback to seed the cookie.
+    }
+  } catch {
+    /* ignore — error UI will trigger after submit */
+  }
+
   return (
     <div className="container mx-auto px-6 py-16 max-w-md">
       <Card>
@@ -29,10 +48,25 @@ export default function LoginPage() {
           <CardDescription>Use your Inkwell credentials.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="space-y-4" onSubmit={onSubmit}>
-            <Input type="email" placeholder="you@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required data-testid="login-email" />
-            <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required data-testid="login-password" />
-            <Button type="submit" className="w-full" disabled={busy} data-testid="login-submit">{busy ? "Signing in…" : "Sign in"}</Button>
+          {/* Fallback: ensure browser hits /api/auth/csrf so the csrf cookie
+              is set before the form is submitted. */}
+          <script
+            // eslint-disable-next-line react/no-danger
+            dangerouslySetInnerHTML={{
+              __html: `fetch('/api/auth/csrf').catch(()=>{});`,
+            }}
+          />
+          <form className="space-y-4" method="POST" action="/api/auth/callback/credentials">
+            <input type="hidden" name="csrfToken" value={csrfToken} />
+            <input type="hidden" name="callbackUrl" value="/dashboard" />
+            <Input type="email" name="email" placeholder="you@email.com" required data-testid="login-email" />
+            <Input type="password" name="password" placeholder="Password" required data-testid="login-password" />
+            {sp?.error && (
+              <p className="text-sm text-destructive" data-testid="login-error">
+                Sign-in failed. Check your email and password.
+              </p>
+            )}
+            <Button type="submit" className="w-full" data-testid="login-submit">Sign in</Button>
             <p className="text-sm text-muted-foreground text-center">
               No account?{" "}
               <Link href="/register" className="text-primary underline-offset-4 hover:underline" data-testid="login-to-register">Register</Link>

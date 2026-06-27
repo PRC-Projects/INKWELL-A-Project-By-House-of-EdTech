@@ -1,0 +1,40 @@
+{
+  "summary": "Re-test after reverse-proxy + login server-component fixes. Backend API surface is now fully working end-to-end via curl (auth, CRUD, sync RBAC, Zod, tenant isolation). However, BROWSER login is still broken: the server-rendered /login page embeds a csrfToken hidden field but the HTTP response does NOT include a Set-Cookie for __Host-authjs.csrf-token. NextAuth's double-submit CSRF check therefore rejects the POST with redirect → /login?error=MissingCSRF. This blocks the entire Playwright/real-browser journey (dashboard, editor, sync-status, snapshots, AI, RBAC viewer enforcement via UI).",
+  "tested_scope": ["frontend", "backend", "auth", "integration"],
+  "passed": [
+    "Backend: unauthenticated GET /api/auth/csrf returns token AND sets __Host-authjs.csrf-token cookie correctly",
+    "Backend: POST /api/auth/callback/credentials with csrf+seeded creds (test@inkwell.dev/test1234) returns 302 with __Secure-authjs.session-token; /api/auth/session then returns the user; previous proxy header-collapsing bug is FIXED",
+    "Backend: GET /api/documents unauth → 401; with session → 200 {documents:[]}",
+    "Backend: POST /api/documents creates doc and returns {document:{id,title}}",
+    "Backend: GET /api/documents/{id} as owner → 200 with role=OWNER, state base64",
+    "Backend: POST /api/documents/{id}/sync with malformed JSON → 400 {error:'Invalid JSON'} (not 500)",
+    "Backend: POST /api/documents/{id}/sync with oversize 300KB base64 update → 400 Zod 'String must contain at most 349534 character(s)' (256KB cap enforced, not 500)",
+    "Backend: tenant isolation — editor@inkwell.dev GET on owner's doc returns 404 {error:'Not found'}",
+    "Backend: RBAC — owner POST /api/documents/{id}/permissions {email:'viewer@inkwell.dev',role:'VIEWER'} → 200 with membership; viewer then GET → 200 with role:VIEWER; viewer POST /sync → 403 {error:'Viewers cannot push state updates'}",
+    "Backend: editor and viewer seeded credentials (editor@inkwell.dev/editor1234, viewer@inkwell.dev/viewer1234) both authenticate successfully via curl",
+    "Frontend: /login renders with email/password inputs and a hidden csrfToken field (server component working at HTML level)",
+    "Frontend (from prior run, unchanged): Landing / + footer testids verified — footer-author-name='Pritam Roy Choudhury', footer-github-link=https://github.com/PRC-Projects/, footer-linkedin-link=https://www.linkedin.com/in/pritam-roy-choudhury/"
+  ],
+  "failed": [
+    {
+      "area": "frontend / login server component → MissingCSRF on real browser submit",
+      "issue": "GET /login returns HTML containing <input name='csrfToken' value='6de15...'/> but the HTTP response carries NO Set-Cookie for __Host-authjs.csrf-token (only __cf_bm). When the user (or Playwright) submits the form, the browser sends the body token but the cookie is absent, so NextAuth's CSRF double-submit check fails and POST /api/auth/callback/credentials 302-redirects to /login?error=MissingCSRF. Curl-based testing only succeeds because we first hit /api/auth/csrf (which DOES set the cookie) and reuse that cookie jar; a real browser landing on /login never gets that side-effect. This blocks the entire browser-based authenticated journey.",
+      "evidence": "1) `curl -i https://.../login` shows hidden csrfToken value=6de1537f... but only set-cookie:__cf_bm appears — no __Host-authjs.csrf-token. 2) Playwright fills test@inkwell.dev/test1234 → form submit → navigated to /login?error=MissingCSRF. Screenshot shows red text 'Sign-in failed. Check your email and password.'",
+      "priority": "HIGH"
+    },
+    {
+      "area": "all UI-driven authenticated flows (blocked by login)",
+      "issue": "Could not verify via browser: dashboard hydration (data-testid='dashboard-title'), new-doc creation flow (new-doc-title + new-doc-submit), editor-surface, sync-status data-status transitions, content persistence on reload, version-history-toggle / snapshot-list / snapshot-restore, ai-toggle / ai-summarize-btn / ai-grammar-btn, share-toggle UI invite, viewer-side editor-surface[data-can-edit='false'] and doc-role-badge='VIEWER'. The underlying API for every one of these is verified working via curl (see passed list).",
+      "evidence": "Playwright run timed out on page.expect_navigation('**/dashboard**') because submit redirected to /login?error=MissingCSRF instead."
+    }
+  ],
+  "action_items": [
+    "Fix the /login server component (/app/frontend/src/app/login/page.tsx) so that the same request that renders the form also sets the __Host-authjs.csrf-token cookie that pairs with the embedded csrfToken hidden field. Two viable approaches: (a) call NextAuth's getCsrfToken()/cookies API server-side AND write the cookie via next/headers cookies().set('__Host-authjs.csrf-token', `${token}|${hash}`, { httpOnly:true, secure:true, sameSite:'lax', path:'/' }) — value must be `${token}|HMAC_SHA256(token, AUTH_SECRET)` per Auth.js spec. (b) Have the login page redirect/proxy through /api/auth/signin so NextAuth itself sets the csrf cookie, then render the form. Approach (a) is simpler.",
+    "After fix, retest the full UI journey: login → /dashboard hydrate (allow 10s) → new doc → editor type → sync-status='online' within 5s → reload persistence → snapshot save/restore → AI summarize/grammar (30s) → share-toggle invite viewer → sign out → sign in as viewer → assert editor-surface[data-can-edit='false'] + doc-role-badge='VIEWER'.",
+    "No other backend or proxy work needed — every API contract called out in the review_request now responds correctly."
+  ],
+  "success_rate": {"backend": "100% (8/8 critical API contracts pass: unauth guard, login, session, doc CRUD, sync RBAC viewer 403, Zod 400 on malformed+oversize, tenant 404, share/permissions)", "frontend": "30% (landing+footer+login HTML render; everything past form submit blocked by MissingCSRF)"},
+  "retest_needed": true,
+  "full_testing_deferred": true,
+  "test_credentials_file": "present at /app/memory/test_credentials.md; documents only test@inkwell.dev — editor@/viewer@ creds taken from review_request and verified working"
+}

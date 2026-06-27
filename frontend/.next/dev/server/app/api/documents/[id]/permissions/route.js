@@ -1,0 +1,11 @@
+var R=require("../../../../../chunks/[turbopack]_runtime.js")("server/app/api/documents/[id]/permissions/route.js")
+R.c("server/chunks/src_app_api_documents_[id]_permissions_route_ts_1vv6000._.js")
+R.c("server/chunks/node_modules_next_1fsbiq1._.js")
+R.c("server/chunks/node_modules_@auth_core_1a23a_s._.js")
+R.c("server/chunks/node_modules_jose_dist_node_esm_1s75m-d._.js")
+R.c("server/chunks/node_modules_zod_v3_1zi-s0x._.js")
+R.c("server/chunks/[root-of-the-server]__1mipeer._.js")
+R.c("server/chunks/[root-of-the-server]__1o32li4._.js")
+R.c("server/chunks/_next-internal_server_app_api_documents_[id]_permissions_route_actions_0rqywjo.js")
+R.m("[project]/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/src/app/api/documents/[id]/permissions/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)")
+module.exports=R.m("[project]/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/src/app/api/documents/[id]/permissions/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)").exports

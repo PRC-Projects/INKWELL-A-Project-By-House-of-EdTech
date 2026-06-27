@@ -407,6 +407,10 @@ body {
   display: grid;
 }
 
+.hidden {
+  display: none;
+}
+
 .h-10 {
   height: 2.5rem;
 }
@@ -917,6 +921,10 @@ body {
 
 .text-secondary-foreground {
   color: hsl(var(--secondary-foreground));
+}
+
+.text-destructive {
+  color: hsl(var(--destructive));
 }
 
 .underline-offset-4 {
