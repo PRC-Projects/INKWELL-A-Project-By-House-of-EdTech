@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LogOut, Plus, FileText } from "lucide-react";
-import { toast } from "sonner";
 
 interface Doc {
   id: string; title: string; updatedAt: string;
@@ -19,8 +18,6 @@ export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [docs, setDocs] = useState<Doc[]>([]);
-  const [title, setTitle] = useState("");
-  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/login");
@@ -33,24 +30,6 @@ export default function DashboardPage() {
     setDocs(j.documents);
   };
   useEffect(() => { if (status === "authenticated") void load(); }, [status]);
-
-  const create = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-    setBusy(true);
-    try {
-      const r = await fetch("/api/documents", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim() }),
-      });
-      if (!r.ok) {
-        toast.error("Could not create document");
-        return;
-      }
-      const j = await r.json();
-      router.push(`/documents/${j.document.id}`);
-    } finally { setBusy(false); }
-  };
 
   if (status !== "authenticated") {
     return <div className="container mx-auto px-6 py-16 text-muted-foreground">Loading…</div>;
@@ -71,9 +50,11 @@ export default function DashboardPage() {
       <Card className="mb-8">
         <CardHeader><CardTitle>New document</CardTitle></CardHeader>
         <CardContent>
-          <form className="flex gap-2" onSubmit={create}>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Untitled draft" data-testid="new-doc-title" />
-            <Button type="submit" disabled={busy || !title.trim()} data-testid="new-doc-submit">
+          {/* Plain form POST to a Route Handler — works without hydration.
+              The handler creates the doc and 303-redirects to /documents/{id}. */}
+          <form className="flex gap-2" method="POST" action="/api/documents/new">
+            <Input name="title" placeholder="Untitled draft" data-testid="new-doc-title" required />
+            <Button type="submit" data-testid="new-doc-submit">
               <Plus className="h-4 w-4" /> Create
             </Button>
           </form>

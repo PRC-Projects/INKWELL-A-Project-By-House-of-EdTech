@@ -95,12 +95,31 @@ export function useYDoc(documentId: string) {
         url,
         name: documentId,
         document: doc,
-        onConnect: () => setWsConnected(true),
-        onDisconnect: () => setWsConnected(false),
-        onClose: () => setWsConnected(false),
       });
       (doc as unknown as { _hp?: HocuspocusProvider })._hp = provider;
     }
+    // Each useYDoc caller wires its own listeners so every consumer of
+    // wsConnected/presence gets updates, not just the one that created
+    // the provider.
+    const handleConnect = () => setWsConnected(true);
+    const handleDisconnect = () => setWsConnected(false);
+    provider.on("connect", handleConnect);
+    provider.on("disconnect", handleDisconnect);
+    provider.on("close", handleDisconnect);
+    // Some Hocuspocus versions also expose a `synced` event that fires after
+    // initial sync — treat it as a positive connection signal as a fallback.
+    provider.on("synced", handleConnect);
+    // If we attached after the connect event already fired, fall back to a
+    // short timer that polls the public status getter.
+    const t = setInterval(() => {
+      const s = (provider as unknown as { status?: string; isConnected?: boolean }).status;
+      const isConnected = (provider as unknown as { isConnected?: boolean }).isConnected;
+      if (s === "connected" || isConnected === true) {
+        setWsConnected(true);
+        clearInterval(t);
+      }
+    }, 500);
+    setTimeout(() => clearInterval(t), 10_000);
     provider.setAwarenessField("user", {
       id: uid,
       name: u.name || u.email || "Anonymous",
@@ -127,21 +146,24 @@ export function useYDoc(documentId: string) {
     providerRef.current = provider;
     return () => {
       provider.awareness?.off("change", onAware);
-      provider.destroy();
+      provider.off("connect", handleConnect);
+      provider.off("disconnect", handleDisconnect);
+      provider.off("close", handleDisconnect);
+      provider.off("synced", handleConnect);
+      clearInterval(t);
       providerRef.current = null;
-      setWsConnected(false);
-      setPresence([]);
     };
-  }, [documentId, session?.user]);
+  }, [documentId, doc, session?.user]);
 
   const setCaret = useMemo(
     () => (caret: number | null) => {
-      providerRef.current?.setAwarenessField("caret", caret);
+      const p = providerRef.current || (doc as unknown as { _hp?: HocuspocusProvider } | null)?._hp;
+      p?.setAwarenessField("caret", caret);
     },
-    [],
+    [doc],
   );
 
-  return { doc: docRef.current, ready, presence, wsConnected, setCaret };
+  return { doc, ready, presence, wsConnected, setCaret };
 }
 
 export function bytesToBase64(buf: Uint8Array): string {

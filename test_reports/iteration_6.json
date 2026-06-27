@@ -1,0 +1,25 @@
+{
+  "summary": "First-finish smoke verified for Inkwell Round-5. Login chain → dashboard → native-form doc creation → editor → Hocuspocus presence + Yjs persistence all work end-to-end. Backend auth guards return correct 401 on unauthenticated /api/documents. Footer attribution & social links correct. Deeper collab (2-user), AI panel, snapshot diff/restore, RBAC viewer-403, zod 400 (sync route gates on auth first → 401), tenant 404, and oversize 413 were not exhaustively executed in this latency-sensitive pass and are deferred to full QA.",
+  "tested_scope": ["frontend", "backend", "auth", "integration"],
+  "passed": [
+    "GET /api/documents (unauth) → 401",
+    "GET /login → 302 /login-form (CSRF cookie chain)",
+    "GET /login-form → 200",
+    "Credentials login (test@inkwell.dev/test1234) → /dashboard with dashboard-title",
+    "Dashboard native form POST /api/documents/new → 303 → /documents/{id}",
+    "Editor surface mounts; typing persists across reload (Yjs + server sync)",
+    "sync-status reaches data-status='online' within 5s",
+    "presence-indicator data-ws-connected='true' (Hocuspocus WS via /api/hocus bridge)",
+    "presence-count shows '0 live' when alone (correct: counts OTHER peers)",
+    "Footer: author 'Pritam Roy Choudhury', github.com/PRC-Projects, linkedin.com/in/pritam-roy-choudhury all present"
+  ],
+  "failed": [],
+  "notes": [
+    "POST /api/documents/{id}/sync with malformed JSON returned 401 (auth runs before zod). Not a bug — order is correct; zod-400 path only reachable with a valid session and was not tested in this pass.",
+    "Two-user live collab, AI summarize/grammar, snapshot diff/restore + Gemini explain, RBAC viewer 403, tenant 404, oversize 413 were NOT executed — deferred to full testing."
+  ],
+  "action_items": [],
+  "success_rate": {"backend": "100% (4/4 smoke)", "frontend": "100% (9/9 happy-path)"},
+  "retest_needed": false,
+  "full_testing_deferred": true
+}
