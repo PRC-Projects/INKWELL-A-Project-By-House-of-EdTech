@@ -1,0 +1,30 @@
+{
+  "summary": "Backend smoke OK (csrf 200, unauth /api/documents → 401). Login & dashboard hydration FIXED (welcome screen, dashboard-title visible). BLOCKER: dashboard new-doc-submit button remains DISABLED even when title input has visible text. Tried (1) page.type() with delay (per agent hint), and (2) native React input value setter + dispatchEvent('input',bubbles) + dispatchEvent('change',bubbles) — both failed: input shows text but `disabled` attr stays true. This is the same blocker as iteration_3. Cannot create document, so editor/sync/Yjs/AI/snapshot-diff/presence/RBAC-on-docs flows could not be exercised in this iteration.",
+  "tested_scope": ["frontend", "backend", "auth", "integration"],
+  "passed": [
+    "GET /api/auth/csrf → 200 with csrfToken",
+    "Unauth GET /api/documents → 401 (matches contract)",
+    "/login Route Handler 302 → /login-form (cookie set)",
+    "Credentials login (test@inkwell.dev/test1234) → /dashboard",
+    "Dashboard hydrates INSTANTLY: dashboard-title 'Welcome back, Tester' visible, no infinite loader (iteration_4 regression fixed)",
+    "new-doc-title input renders and accepts text visually",
+    "Footer present (author/github/linkedin testids on dashboard screenshot)"
+  ],
+  "failed": [
+    {
+      "area": "Dashboard / Create Document",
+      "issue": "Controlled `title` state does not update from input. new-doc-submit stays disabled with `!title.trim()` even after both (a) page.type() of 'Test Doc T1' and (b) native React value setter + input+change event dispatch. Input visually shows the text but React state appears empty (or `busy` is stuck true).",
+      "evidence": "Screenshot shows input value 'Doc From T1 React Setter' but Create button has `disabled` attr. Playwright click times out at 15s with 'element is not enabled'. Code path: /app/frontend/src/app/dashboard/page.tsx:75-76 — disabled={busy || !title.trim()}.",
+      "priority": "HIGH"
+    }
+  ],
+  "action_items": [
+    "Inspect dashboard/page.tsx: verify <Input> component (likely shadcn/ui) actually forwards onChange to the native input. Some shadcn Input wrappers wrap value/onChange in a way that drops events when used with React 19 + Next.js 16. Try replacing <Input ... onChange={...}/> with a plain <input/> to isolate.",
+    "Also check whether `busy` state could be stuck true (e.g., set to true on mount and never reset).",
+    "After the fix, re-run T1 to cover: editor sync-status=online, reload preserves text, AI panel (summarize/grammar), snapshot save+diff+explain+restore, two-context presence (owner+editor), RBAC viewer 403 on POST /api/documents/{id}/sync, tenant isolation 404, zod 400/413.",
+    "Note: hot-module-reload websocket (_next/webpack-hmr) was 502-ing in console — harmless for prod behavior but flag if dev experience matters."
+  ],
+  "success_rate": {"backend": "100% (3/3 smoke checks)", "frontend": "~30% (login+dashboard hydrate pass; doc creation onward blocked)"},
+  "retest_needed": true,
+  "full_testing_deferred": true
+}
