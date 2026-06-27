@@ -1,0 +1,40 @@
+{
+  "summary": "Smoke test against external preview URL. Login form fix verified (button enabled, no longer stuck on 'Preparing…'). Server-side session works correctly (/api/auth/session returns 200 with user payload after credentials POST). However, /dashboard client component stays stuck on 'Loading…' indefinitely — data-testid='dashboard-title' never mounts even after hard reload. This blocks all downstream feature tests (create doc, editor sync, snapshots, AI, presence, RBAC viewer/editor flows).",
+  "tested_scope": ["frontend", "backend", "auth", "integration"],
+  "passed": [
+    "GET /login → 302 redirect to /login-form",
+    "GET /login-form → 200, csrf token rendered server-side, submit button enabled with text 'Sign in' (no longer stuck on 'Preparing…')",
+    "POST credentials with test@inkwell.dev / test1234 → 302 to /dashboard, session cookie set",
+    "GET /api/auth/session (authenticated) → 200 with full user object {id, email, name}",
+    "GET /api/auth/csrf → 200",
+    "Unauthenticated GET /api/documents → 401",
+    "Footer testids present: footer-author-name='Pritam Roy Choudhury', footer-github-link, footer-linkedin-link (all render on /dashboard shell)"
+  ],
+  "failed": [
+    {
+      "area": "dashboard / SessionProvider",
+      "issue": "After successful login the /dashboard page client component remains stuck on 'Loading…' indefinitely. data-testid='dashboard-title' never appears (waited 15s + extra 8s + hard reload + extra 8s). The page shell + footer render but the inner content does not. /api/auth/session returns 200 with valid user payload, so the cookie is fine — meaning useSession() (or a downstream documents fetch) on the client is hanging in 'loading' state or the SessionProvider isn't wired to the dashboard tree. No app-level console errors observed (only benign webpack-hmr 502s).",
+      "evidence": "Body text on /dashboard = 'Loading…\\nBuilt with care by Pritam Roy Choudhury\\nGitHub LinkedIn'. /api/auth/session returns {\"user\":{\"name\":\"Tester\",\"email\":\"test@inkwell.dev\",\"id\":\"cmqws9e7r0000m4mdm0y0qor7\"},\"expires\":\"2026-07-04T20:02:24.417Z\"}. Persists after page.reload().",
+      "priority": "HIGH"
+    }
+  ],
+  "blocked_tests": [
+    "Dashboard create document flow",
+    "Editor surface typing + sync-status=online + reload persistence",
+    "Snapshot diff modal, export, AI explain-diff",
+    "Snapshot restore",
+    "AI summarize + grammar via ai-toggle/ai-panel",
+    "Hocuspocus presence two-tab test (presence-indicator, presence-count, remote-cursor)",
+    "RBAC viewer (editor-surface data-can-edit='false', doc-role-badge='VIEWER', POST sync → 403)",
+    "Tenant isolation editor → other doc → 404 (needs doc id created via dashboard)",
+    "Zod sync guard malformed/oversize (needs valid doc id)"
+  ],
+  "action_items": [
+    "Inspect src/app/dashboard/page.tsx — verify it doesn't gate render on useSession() returning 'authenticated' forever, OR that the documents-list fetch (e.g. GET /api/documents) on the client actually resolves. If useSession is hanging, check that <SessionProvider> wraps the dashboard route in src/app/layout.tsx / providers.tsx and that NEXTAUTH_URL/basePath matches the external host the browser is on.",
+    "Confirm the dashboard is not a Server Component awaiting a never-resolving Promise, and that no client-side fetch is blocked by missing cookie forwarding when going through the FastAPI :8001 proxy.",
+    "Quick repro: log in via UI, then in browser devtools network tab observe whether /api/documents is even fired from the dashboard, and what status it returns."
+  ],
+  "success_rate": {"backend": "100% (3/3 smoke endpoints)", "frontend": "20% (login + footer pass; dashboard + all downstream blocked)"},
+  "retest_needed": true,
+  "full_testing_deferred": true
+}
