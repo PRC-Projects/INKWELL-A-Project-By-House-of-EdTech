@@ -170,7 +170,13 @@ _HOP_BY_HOP = {
 
 @app.websocket("/api/hocus")
 async def hocus_ws_proxy(ws: WebSocket) -> None:
-    """Bridge a browser WebSocket to the Hocuspocus server on localhost:1234."""
+    """Bridge a browser WebSocket to the Hocuspocus server on localhost:1234.
+
+    When either side closes we cancel the partner task so the upstream WS to
+    Hocuspocus is shut down promptly — otherwise the remaining peers wait up
+    to 30s (Hocuspocus default ping timeout) before seeing the leaver vanish
+    from awareness.
+    """
     await ws.accept(subprotocol=None)
     try:
         async with websockets.connect(
@@ -201,7 +207,17 @@ async def hocus_ws_proxy(ws: WebSocket) -> None:
                 except websockets.ConnectionClosed:
                     pass
 
-            await asyncio.gather(client_to_upstream(), upstream_to_client(), return_exceptions=True)
+            c2u = asyncio.create_task(client_to_upstream())
+            u2c = asyncio.create_task(upstream_to_client())
+            # When either side finishes, cancel the other so the upstream WS
+            # closes immediately and Hocuspocus broadcasts the disconnect.
+            done, pending = await asyncio.wait({c2u, u2c}, return_when=asyncio.FIRST_COMPLETED)
+            for task in pending:
+                task.cancel()
+            try:
+                await asyncio.gather(*pending, return_exceptions=True)
+            except Exception:
+                pass
     except (websockets.WebSocketException, OSError):
         pass
     finally:
