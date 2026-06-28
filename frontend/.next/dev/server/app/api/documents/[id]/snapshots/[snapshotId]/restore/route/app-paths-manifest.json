@@ -1,0 +1,3 @@
+{
+  "/api/documents/[id]/snapshots/[snapshotId]/restore/route": "app/api/documents/[id]/snapshots/[snapshotId]/restore/route.js"
+}

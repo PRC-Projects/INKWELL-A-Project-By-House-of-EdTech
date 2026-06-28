@@ -1,0 +1,7 @@
+module.exports = [
+"[project]/.next-internal/server/app/api/documents/[id]/snapshots/route/actions.js [app-rsc] (server actions loader, ecmascript)", ((__turbopack_context__, module, exports) => {
+
+}),
+];
+
+//# sourceMappingURL=_next-internal_server_app_api_documents_%5Bid%5D_snapshots_route_actions_1mtnopd.js.map

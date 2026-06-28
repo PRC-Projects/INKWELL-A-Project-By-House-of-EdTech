@@ -47,6 +47,11 @@ export function useYDoc(documentId: string) {
   const [ready, setReady] = useState(false);
   const [presence, setPresence] = useState<PresenceUser[]>([]);
   const [wsConnected, setWsConnected] = useState(false);
+  // Provider must be in React state so consumers (the Tiptap editor) re-render
+  // and mount the CollaborationCursor extension once the WS provider exists.
+  // Without this, the editor reads `doc._hp` at first render — which is null —
+  // and CollaborationCursor never broadcasts/receives awareness frames.
+  const [provider, setProvider] = useState<HocuspocusProvider | null>(null);
   const { data: session } = useSession();
 
   const doc = useMemo(() => {
@@ -98,6 +103,10 @@ export function useYDoc(documentId: string) {
       });
       (doc as unknown as { _hp?: HocuspocusProvider })._hp = provider;
     }
+    // Expose the provider to React so Tiptap's CollaborationCursor extension
+    // can mount with a real provider (it falls back to null on the initial
+    // render before the effect attaches `_hp`).
+    setProvider(provider);
     // Each useYDoc caller wires its own listeners so every consumer of
     // wsConnected/presence gets updates, not just the one that created
     // the provider.
@@ -179,7 +188,7 @@ export function useYDoc(documentId: string) {
     [doc],
   );
 
-  return { doc, ready, presence, wsConnected, setCaret };
+  return { doc, ready, presence, wsConnected, setCaret, provider };
 }
 
 export function bytesToBase64(buf: Uint8Array): string {

@@ -13,7 +13,6 @@ import { useYDoc, base64ToBytes, type PresenceUser } from "@/lib/yjs-client";
 import { useSyncEngine } from "@/store/useSyncEngine";
 import { useSession } from "next-auth/react";
 import { EditorToolbar } from "@/components/editor-toolbar";
-import { HocuspocusProvider } from "@hocuspocus/provider";
 
 interface EditorProps {
   documentId: string;
@@ -41,7 +40,7 @@ function colorFromId(id: string): string {
  *   StarterKit's history must be disabled to avoid conflicts.
  */
 export function Editor({ documentId, initialServerState, canEdit }: EditorProps) {
-  const { doc, presence } = useYDoc(documentId);
+  const { doc, presence, provider } = useYDoc(documentId);
   useSyncEngine(documentId, doc, canEdit);
   const { data: session } = useSession();
 
@@ -56,10 +55,6 @@ export function Editor({ documentId, initialServerState, canEdit }: EditorProps)
       migrateLegacyTextIfNeeded(doc);
     }
   }, [doc, initialServerState]);
-
-  const provider = doc
-    ? ((doc as unknown as { _hp?: HocuspocusProvider })._hp ?? null)
-    : null;
 
   const u = session?.user as { id?: string; name?: string | null; email?: string | null } | undefined;
   const uid = u?.id || u?.email || "anon";

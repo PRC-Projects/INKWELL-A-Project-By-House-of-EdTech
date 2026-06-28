@@ -1,0 +1,12 @@
+var R=require("../../../../../../chunks/[turbopack]_runtime.js")("server/app/api/documents/[id]/snapshots/[snapshotId]/route.js")
+R.c("server/chunks/src_app_api_documents_[id]_snapshots_[snapshotId]_route_ts_10hoyif._.js")
+R.c("server/chunks/node_modules_next_08z1925._.js")
+R.c("server/chunks/node_modules_@auth_core_1a23a_s._.js")
+R.c("server/chunks/node_modules_jose_dist_node_esm_1s75m-d._.js")
+R.c("server/chunks/node_modules_zod_v3_1zi-s0x._.js")
+R.c("server/chunks/node_modules_yjs_dist_yjs_mjs_0sjo--k._.js")
+R.c("server/chunks/[root-of-the-server]__03hvmh_._.js")
+R.c("server/chunks/[root-of-the-server]__1v9rl7j._.js")
+R.c("server/chunks/1oeh_server_app_api_documents_[id]_snapshots_[snapshotId]_route_actions_0y1g1gx.js")
+R.m("[project]/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/src/app/api/documents/[id]/snapshots/[snapshotId]/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)")
+module.exports=R.m("[project]/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/src/app/api/documents/[id]/snapshots/[snapshotId]/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)").exports

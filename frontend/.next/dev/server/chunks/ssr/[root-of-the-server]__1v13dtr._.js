@@ -116,6 +116,11 @@ function useYDoc(documentId) {
     const [ready, setReady] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
     const [presence, setPresence] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])([]);
     const [wsConnected, setWsConnected] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
+    // Provider must be in React state so consumers (the Tiptap editor) re-render
+    // and mount the CollaborationCursor extension once the WS provider exists.
+    // Without this, the editor reads `doc._hp` at first render — which is null —
+    // and CollaborationCursor never broadcasts/receives awareness frames.
+    const [provider, setProvider] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(null);
     const { data: session } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2d$auth$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useSession"])();
     const doc = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useMemo"])(()=>{
         if (!documentId) return null;
@@ -179,7 +184,8 @@ function useYDoc(documentId) {
         ready,
         presence,
         wsConnected,
-        setCaret
+        setCaret,
+        provider
     };
 }
 function bytesToBase64(buf) {
@@ -756,7 +762,7 @@ function colorFromId(id) {
     return `hsl(${h} 70% 45%)`;
 }
 function Editor({ documentId, initialServerState, canEdit }) {
-    const { doc, presence } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$yjs$2d$client$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useYDoc"])(documentId);
+    const { doc, presence, provider } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$yjs$2d$client$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useYDoc"])(documentId);
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$store$2f$useSyncEngine$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useSyncEngine"])(documentId, doc, canEdit);
     const { data: session } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2d$auth$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useSession"])();
     // One-time hydration: apply the server's binary state to the local doc
@@ -773,7 +779,6 @@ function Editor({ documentId, initialServerState, canEdit }) {
         doc,
         initialServerState
     ]);
-    const provider = doc ? doc._hp ?? null : null;
     const u = session?.user;
     const uid = u?.id || u?.email || "anon";
     const uname = u?.name || u?.email || "Anonymous";
@@ -829,7 +834,7 @@ function Editor({ documentId, initialServerState, canEdit }) {
                 editor: editor
             }, void 0, false, {
                 fileName: "[project]/src/components/editor.tsx",
-                lineNumber: 106,
+                lineNumber: 101,
                 columnNumber: 29
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -844,33 +849,33 @@ function Editor({ documentId, initialServerState, canEdit }) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/src/components/editor.tsx",
-                        lineNumber: 108,
+                        lineNumber: 103,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$tiptap$2f$react$2f$dist$2f$index$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["EditorContent"], {
                         editor: editor
                     }, void 0, false, {
                         fileName: "[project]/src/components/editor.tsx",
-                        lineNumber: 109,
+                        lineNumber: 104,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(ReadOnlyHint, {
                         canEdit: canEdit
                     }, void 0, false, {
                         fileName: "[project]/src/components/editor.tsx",
-                        lineNumber: 110,
+                        lineNumber: 105,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/editor.tsx",
-                lineNumber: 107,
+                lineNumber: 102,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/src/components/editor.tsx",
-        lineNumber: 105,
+        lineNumber: 100,
         columnNumber: 5
     }, this);
 }
@@ -913,7 +918,7 @@ function PresenceLabels({ presence, self }) {
                             }
                         }, void 0, false, {
                             fileName: "[project]/src/components/editor.tsx",
-                            lineNumber: 148,
+                            lineNumber: 143,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -924,13 +929,13 @@ function PresenceLabels({ presence, self }) {
                             ]
                         }, void 0, true, {
                             fileName: "[project]/src/components/editor.tsx",
-                            lineNumber: 149,
+                            lineNumber: 144,
                             columnNumber: 11
                         }, this)
                     ]
                 }, u.id, true, {
                     fileName: "[project]/src/components/editor.tsx",
-                    lineNumber: 142,
+                    lineNumber: 137,
                     columnNumber: 9
                 }, this)),
             list.length > 6 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -941,13 +946,13 @@ function PresenceLabels({ presence, self }) {
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/editor.tsx",
-                lineNumber: 152,
+                lineNumber: 147,
                 columnNumber: 27
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/src/components/editor.tsx",
-        lineNumber: 140,
+        lineNumber: 135,
         columnNumber: 5
     }, this);
 }
@@ -963,7 +968,7 @@ function ReadOnlyHint({ canEdit }) {
         ]
     }, void 0, true, {
         fileName: "[project]/src/components/editor.tsx",
-        lineNumber: 161,
+        lineNumber: 156,
         columnNumber: 5
     }, this);
 }
@@ -1738,11 +1743,20 @@ function AIAssistant({ doc, canEdit }) {
     };
     const applyToDoc = ()=>{
         if (!doc || !result) return;
-        const ytext = doc.getText("content");
+        // Tiptap renders from Y.XmlFragment("default") since the rich-text
+        // migration. Writing to the legacy Y.Text("content") wouldn't show up.
+        const frag = doc.getXmlFragment("default");
         doc.transact(()=>{
-            const cur = ytext.toString();
-            if (cur.length > 0) ytext.delete(0, cur.length);
-            ytext.insert(0, result);
+            if (frag.length > 0) frag.delete(0, frag.length);
+            for (const line of result.split(/\n+/)){
+                const para = new __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$yjs$2f$dist$2f$yjs$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["XmlElement"]("paragraph");
+                if (line) para.insert(0, [
+                    new __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$yjs$2f$dist$2f$yjs$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["XmlText"](line)
+                ]);
+                frag.push([
+                    para
+                ]);
+            }
         }, "local");
         __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$sonner$2f$dist$2f$index$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["toast"].success("Replaced document with AI output");
         setOpen(false);
@@ -1760,14 +1774,14 @@ function AIAssistant({ doc, canEdit }) {
                         className: "h-4 w-4"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ai-assistant.tsx",
-                        lineNumber: 71,
+                        lineNumber: 76,
                         columnNumber: 9
                     }, this),
                     " AI Assistant"
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ai-assistant.tsx",
-                lineNumber: 70,
+                lineNumber: 75,
                 columnNumber: 7
             }, this),
             open && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1779,7 +1793,7 @@ function AIAssistant({ doc, canEdit }) {
                         children: "Smart AI Assistant"
                     }, void 0, false, {
                         fileName: "[project]/src/components/ai-assistant.tsx",
-                        lineNumber: 78,
+                        lineNumber: 83,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1796,7 +1810,7 @@ function AIAssistant({ doc, canEdit }) {
                                         className: "h-4 w-4"
                                     }, void 0, false, {
                                         fileName: "[project]/src/components/ai-assistant.tsx",
-                                        lineNumber: 87,
+                                        lineNumber: 92,
                                         columnNumber: 15
                                     }, this),
                                     " ",
@@ -1804,7 +1818,7 @@ function AIAssistant({ doc, canEdit }) {
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/components/ai-assistant.tsx",
-                                lineNumber: 80,
+                                lineNumber: 85,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Button"], {
@@ -1818,7 +1832,7 @@ function AIAssistant({ doc, canEdit }) {
                                         className: "h-4 w-4"
                                     }, void 0, false, {
                                         fileName: "[project]/src/components/ai-assistant.tsx",
-                                        lineNumber: 96,
+                                        lineNumber: 101,
                                         columnNumber: 15
                                     }, this),
                                     " ",
@@ -1826,13 +1840,13 @@ function AIAssistant({ doc, canEdit }) {
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/components/ai-assistant.tsx",
-                                lineNumber: 89,
+                                lineNumber: 94,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/components/ai-assistant.tsx",
-                        lineNumber: 79,
+                        lineNumber: 84,
                         columnNumber: 11
                     }, this),
                     result !== null && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1845,7 +1859,7 @@ function AIAssistant({ doc, canEdit }) {
                                 children: result
                             }, void 0, false, {
                                 fileName: "[project]/src/components/ai-assistant.tsx",
-                                lineNumber: 101,
+                                lineNumber: 106,
                                 columnNumber: 15
                             }, this),
                             canEdit && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Button"], {
@@ -1855,25 +1869,25 @@ function AIAssistant({ doc, canEdit }) {
                                 children: "Replace document with this"
                             }, void 0, false, {
                                 fileName: "[project]/src/components/ai-assistant.tsx",
-                                lineNumber: 105,
+                                lineNumber: 110,
                                 columnNumber: 17
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/components/ai-assistant.tsx",
-                        lineNumber: 100,
+                        lineNumber: 105,
                         columnNumber: 13
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/ai-assistant.tsx",
-                lineNumber: 74,
+                lineNumber: 79,
                 columnNumber: 9
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/src/components/ai-assistant.tsx",
-        lineNumber: 69,
+        lineNumber: 74,
         columnNumber: 5
     }, this);
 }

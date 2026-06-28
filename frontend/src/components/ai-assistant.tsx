@@ -55,11 +55,16 @@ export function AIAssistant({ doc, canEdit }: { doc: Y.Doc | null; canEdit: bool
 
   const applyToDoc = () => {
     if (!doc || !result) return;
-    const ytext = doc.getText("content");
+    // Tiptap renders from Y.XmlFragment("default") since the rich-text
+    // migration. Writing to the legacy Y.Text("content") wouldn't show up.
+    const frag = doc.getXmlFragment("default");
     doc.transact(() => {
-      const cur = ytext.toString();
-      if (cur.length > 0) ytext.delete(0, cur.length);
-      ytext.insert(0, result);
+      if (frag.length > 0) frag.delete(0, frag.length);
+      for (const line of result.split(/\n+/)) {
+        const para = new Y.XmlElement("paragraph");
+        if (line) para.insert(0, [new Y.XmlText(line)]);
+        frag.push([para]);
+      }
     }, "local");
     toast.success("Replaced document with AI output");
     setOpen(false);

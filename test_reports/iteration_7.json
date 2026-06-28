@@ -1,0 +1,69 @@
+{
+  "summary": "Full regression of Inkwell after P0 awareness-sync fix. Multi-user presence, two-way collab, full Tiptap toolbar, AI summarize/grammar/explain-diff (Gemini), snapshot save/restore, dashboard CRUD, popup outside-click closing, INKWELL wordmark, RBAC, and backend auth gates all verified end-to-end. ONE bug found: presence-count does NOT decrement when a peer disconnects — remaining tab still shows '2 live' after ~6s even though Hocuspocus logs the disconnect. Plus one minor diff-line testID rendering flake and a seed-data inconsistency (viewer membership claimed in test_credentials.md but missing from DB).",
+  "tested_scope": ["frontend", "backend", "auth", "integration", "AI", "RBAC", "Yjs", "Hocuspocus"],
+  "passed": [
+    "Backend: GET /api/documents (no auth) → 401",
+    "Backend: POST /api/documents/{id}/sync (no auth) → 401",
+    "Backend: POST /api/ai (no auth) → 401",
+    "Auth: login chain /login → /login-form → /dashboard for owner, editor, viewer",
+    "Presence: 2 simultaneous tabs both show data-testid=presence-count '2 live', data-ws-connected='true'",
+    "Presence: presence-labels carry each other's display name ('Tester' / 'Eddie')",
+    "Collab: typing in tab A appears in tab B within 2s and vice versa",
+    "Tiptap toolbar 14/14 buttons clickable. Toggling marks (bold/italic/underline/strike/h1/h2/bullet-list/ordered-list/code/code-block) reflect aria-pressed='true'. blockquote/hr/undo/redo are command-style (no aria-pressed toggle) — correct.",
+    "AI summarize via Gemini 2.5 Flash — ai-result-text populated within ~10s, coherent output",
+    "AI grammar fix correctly fixed 'This are an example sentance with two typo.' → 'This is an example sentence with two typos.'",
+    "AI panel closes when clicking outside (use-click-outside hook)",
+    "version-history-panel closes on outside click",
+    "share-panel closes on outside click",
+    "Snapshot save: POST creates new row in DB, list re-renders with new snapshot-diff-{id} button",
+    "Snapshot restore: editor reverts to baseline (ZBASELINE_MARKER present, ZEDIT_NEW removed) — Tiptap surface NOT blank, renders correctly against Y.XmlFragment('default')",
+    "Snapshot AI explain-diff: Gemini returns 2-3 sentence diff explanation correctly identifying appended text",
+    "Dashboard: create via new-doc-title + new-doc-submit → /documents/{id}",
+    "Dashboard: hover doc-card-{id} → click doc-delete-{id} → native confirm → card removed from grid",
+    "INKWELL wordmark / 'Inkwell' brand text present on dashboard + document header",
+    "RBAC: viewer (NOT a member, per DB) GET /api/documents/{id} → 404, browser redirects to /dashboard",
+    "Footer: 'Pritam Roy Choudhury' + GitHub + LinkedIn links present"
+  ],
+  "failed": [
+    {
+      "name": "Awareness pruning on peer disconnect",
+      "expected": "When peer B closes, peer A's presence-count drops from '2 live' to '1 live' within a few seconds",
+      "actual": "After ctx_b.close() (Hocuspocus server logged disconnect cleanly), peer A still showed '2 live' after 6s wait. Awareness state is not being pruned client-side.",
+      "priority": "HIGH",
+      "evidence": "/tmp/hocus.out.log shows '[hocus] disconnect doc=cmqy41omm007ydtv8mbnyq6s8' yet remaining client still rendered '2 live'.",
+      "likely_root_cause": "Hocuspocus client may not be wiring the awareness 'change' / 'update' event to React state, OR the presence-count source still includes a stale own-client + disconnected-peer because awareness states map isn't filtered for `connected` flag / change subscription not registered. Inspect /app/frontend/src/lib/yjs-client.ts useYDoc hook and the presence-count selector in editor.tsx / wherever it reads provider.awareness.getStates().size."
+    }
+  ],
+  "minor_issues": [
+    {
+      "name": "diff-line-add / diff-line-del testIDs returned 0 matches in modal",
+      "details": "Right after opening snapshot-diff-{id} and waiting 2.5s, query_selector_all('[data-testid=diff-line-add]') returned 0 and same for -del. But the AI-explain payload (which uses the same snapshot.text & current.text) correctly identified the appended edit ('appended ZEDIT_NEW at its conclusion'), so the diff data was fetched. Likely a timing/render race — the modal mounted before /api/documents/{id}/snapshots/{snapshotId} resolved. Code in /app/frontend/src/components/snapshot-diff.tsx already renders diff-line-{type} once `data` is set. Consider adding a loading state with a data-testid='diff-loading' so tests can wait deterministically. Restore + AI explain both work, so impact is testing-only.",
+      "priority": "LOW"
+    },
+    {
+      "name": "Seed data inconsistency: viewer not in DB Membership table",
+      "details": "/app/memory/test_credentials.md states viewer@inkwell.dev is a VIEWER on cmqy41omm007ydtv8mbnyq6s8. DB inspection shows only editor@inkwell.dev as EDITOR. So viewer→doc returns 404 (correct code path, wrong assumption in docs). Either re-seed Membership row {documentId: cmqy41omm007ydtv8mbnyq6s8, userId: cmqy3rd4s0002dtv8p9ti8df9, role: VIEWER} or update test_credentials.md.",
+      "priority": "LOW"
+    }
+  ],
+  "action_items": [
+    "Fix awareness disconnect pruning: peer A should drop to '1 live' (or whatever count formula is) within ~5s of peer B closing. Verify HocuspocusProvider's awareness 'change' or 'update' subscription updates the React state, and that disconnected clientID entries are removed from awareness.getStates(). Possibly bump awareness timeout / register provider.on('awarenessChange') instead of awareness.on('update').",
+    "Either re-seed VIEWER Membership for viewer@inkwell.dev on cmqy41omm007ydtv8mbnyq6s8 so the documented RBAC test (readonly-hint visible, canEdit=false) is reachable, OR drop the claim from test_credentials.md.",
+    "(Optional) Add a data-testid='diff-loading' or wait for data-testid='diff-line-same' (always present) in snapshot-diff.tsx so automated tests can deterministically wait for the diff body to mount."
+  ],
+  "critical_code_review_comments": [
+    "ai-assistant.tsx applyToDoc now correctly writes to Y.XmlFragment('default') — verified by AI-grammar fix actually replacing the editor content path; good fix.",
+    "useYDoc returning provider as React state confirmed to mount Tiptap CollaborationCursor with a real provider on first render — name badges visible immediately on both tabs.",
+    "Hocuspocus onAuthenticate removal works — sync handshake completes, awareness propagates. However, the inverse path (disconnect-driven awareness shrink) is still broken; suggests awareness-change subscription on the client side is using a stale listener or wrong event name.",
+    "snapshot-diff.tsx has data-testid for diff-line-{add|del|same} but no loading marker — flaky for automated tests."
+  ],
+  "updated_files": [],
+  "test_report_links": ["/app/test_reports/iteration_7.json"],
+  "success_rate": {"backend": "100% (3/3 auth-gate endpoints + DB persistence verified)", "frontend": "94% (16/17 flows green; awareness-disconnect prune failed)"},
+  "test_credentials": "Used /app/memory/test_credentials.md — but viewer membership claim is inaccurate vs DB.",
+  "seed_data_creation": "Created two transient docs during dashboard CRUD test: one was deleted via UI, one ('cmqy5vmk1006c1j6dhrybubbx') may remain in DB; also added 'Regression-Test' and 'RegrFinal' snapshot rows to doc cmqy41omm007ydtv8mbnyq6s8.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "P0 awareness UP-direction works (peers see each other join with '2 live'). The DOWN-direction (peer leaves → count decrement) is the remaining bug. Reproduce: open doc in two tabs as test@inkwell.dev + editor@inkwell.dev; verify both show '2 live'; close one tab; remaining tab should show '1 live' within 5s — currently stays at '2 live'. Inspect awareness 'change' subscription wiring in /app/frontend/src/lib/yjs-client.ts useYDoc + however presence-count is derived in /app/frontend/src/components/editor.tsx (search for awareness.getStates or presence-count testid).",
+  "rca_of_the_issue": "Awareness add events fire correctly (because HocuspocusProvider is now state-exposed from useYDoc per the P0 fix), but awareness remove/disconnect updates don't seem to flow into the React state that drives presence-count. Most likely cause: the React subscription listens to a one-shot or initial-only awareness event, or filters states by a stale local-clientID set. Recommend: in useYDoc, ensure provider.awareness.on('change', refresh) is registered and that refresh reads provider.awareness.getStates() fresh each call, and that cleanup returns the off-handler."
+}

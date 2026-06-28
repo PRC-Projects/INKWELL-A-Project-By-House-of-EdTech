@@ -194,8 +194,8 @@ async def hocus_ws_proxy(ws: WebSocket) -> None:
             async def upstream_to_client() -> None:
                 try:
                     async for frame in upstream:
-                        if isinstance(frame, bytes):
-                            await ws.send_bytes(frame)
+                        if isinstance(frame, (bytes, bytearray, memoryview)):
+                            await ws.send_bytes(bytes(frame))
                         else:
                             await ws.send_text(frame)
                 except websockets.ConnectionClosed:

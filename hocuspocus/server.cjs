@@ -25,9 +25,14 @@ const server = Server.configure({
   port: PORT,
   address: "0.0.0.0",
 
-  async onAuthenticate() {
-    return { allow: true };
-  },
+  // No onAuthenticate hook — defining it puts Hocuspocus into auth-required
+  // mode where the server waits for a client-side `token` before completing
+  // the sync handshake. Our @hocuspocus/provider clients don't send a token,
+  // so adding this hook would deadlock the handshake (server waits for auth,
+  // client waits for sync, no awareness frames are ever exchanged).
+  // Document-level RBAC is enforced at the Next.js HTTP layer when the user
+  // opens /documents/[id], so the WS layer can be open.
+
   async onStoreDocument() {
     /* no-op — HTTP sync is the source of truth */
   },
