@@ -1124,7 +1124,27 @@ function SnapshotDiff({ documentId, snapshotId, onClose }) {
         documentId,
         snapshotId
     ]);
-    if (!data) return null;
+    if (!data) {
+        return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+            "data-testid": "snapshot-diff-modal",
+            className: "fixed inset-0 z-40 bg-foreground/40 flex items-center justify-center p-4",
+            onClick: onClose,
+            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                "data-testid": "diff-loading",
+                className: "paper-card rounded-lg px-6 py-4 text-sm text-muted-foreground",
+                onClick: (e)=>e.stopPropagation(),
+                children: "Loading diff…"
+            }, void 0, false, {
+                fileName: "[project]/src/components/snapshot-diff.tsx",
+                lineNumber: 56,
+                columnNumber: 9
+            }, this)
+        }, void 0, false, {
+            fileName: "[project]/src/components/snapshot-diff.tsx",
+            lineNumber: 51,
+            columnNumber: 7
+        }, this);
+    }
     const diff = diffLines(data.snapshot.text, data.current.text);
     const explainDiff = async ()=>{
         setExplaining(true);
@@ -1179,7 +1199,7 @@ function SnapshotDiff({ documentId, snapshotId, onClose }) {
                                     children: "Diff vs snapshot"
                                 }, void 0, false, {
                                     fileName: "[project]/src/components/snapshot-diff.tsx",
-                                    lineNumber: 87,
+                                    lineNumber: 103,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1188,13 +1208,13 @@ function SnapshotDiff({ documentId, snapshotId, onClose }) {
                                     children: data.snapshot.label
                                 }, void 0, false, {
                                     fileName: "[project]/src/components/snapshot-diff.tsx",
-                                    lineNumber: 88,
+                                    lineNumber: 104,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/src/components/snapshot-diff.tsx",
-                            lineNumber: 86,
+                            lineNumber: 102,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1211,7 +1231,7 @@ function SnapshotDiff({ documentId, snapshotId, onClose }) {
                                             className: "h-4 w-4"
                                         }, void 0, false, {
                                             fileName: "[project]/src/components/snapshot-diff.tsx",
-                                            lineNumber: 92,
+                                            lineNumber: 108,
                                             columnNumber: 15
                                         }, this),
                                         " ",
@@ -1219,7 +1239,7 @@ function SnapshotDiff({ documentId, snapshotId, onClose }) {
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/src/components/snapshot-diff.tsx",
-                                    lineNumber: 91,
+                                    lineNumber: 107,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Button"], {
@@ -1232,14 +1252,14 @@ function SnapshotDiff({ documentId, snapshotId, onClose }) {
                                             className: "h-4 w-4"
                                         }, void 0, false, {
                                             fileName: "[project]/src/components/snapshot-diff.tsx",
-                                            lineNumber: 94,
+                                            lineNumber: 110,
                                             columnNumber: 105
                                         }, this),
                                         " Markdown"
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/src/components/snapshot-diff.tsx",
-                                    lineNumber: 94,
+                                    lineNumber: 110,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Button"], {
@@ -1251,24 +1271,24 @@ function SnapshotDiff({ documentId, snapshotId, onClose }) {
                                         className: "h-4 w-4"
                                     }, void 0, false, {
                                         fileName: "[project]/src/components/snapshot-diff.tsx",
-                                        lineNumber: 95,
+                                        lineNumber: 111,
                                         columnNumber: 101
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/src/components/snapshot-diff.tsx",
-                                    lineNumber: 95,
+                                    lineNumber: 111,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/src/components/snapshot-diff.tsx",
-                            lineNumber: 90,
+                            lineNumber: 106,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/src/components/snapshot-diff.tsx",
-                    lineNumber: 85,
+                    lineNumber: 101,
                     columnNumber: 9
                 }, this),
                 explanation !== null && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1280,7 +1300,7 @@ function SnapshotDiff({ documentId, snapshotId, onClose }) {
                             children: "AI Summary"
                         }, void 0, false, {
                             fileName: "[project]/src/components/snapshot-diff.tsx",
-                            lineNumber: 100,
+                            lineNumber: 116,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1288,13 +1308,13 @@ function SnapshotDiff({ documentId, snapshotId, onClose }) {
                             children: explanation
                         }, void 0, false, {
                             fileName: "[project]/src/components/snapshot-diff.tsx",
-                            lineNumber: 101,
+                            lineNumber: 117,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/src/components/snapshot-diff.tsx",
-                    lineNumber: 99,
+                    lineNumber: 115,
                     columnNumber: 11
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1309,30 +1329,30 @@ function SnapshotDiff({ documentId, snapshotId, onClose }) {
                                     children: d.type === "add" ? "+" : d.type === "del" ? "−" : " "
                                 }, void 0, false, {
                                     fileName: "[project]/src/components/snapshot-diff.tsx",
-                                    lineNumber: 115,
+                                    lineNumber: 131,
                                     columnNumber: 15
                                 }, this),
                                 d.text || "\u00A0"
                             ]
                         }, i, true, {
                             fileName: "[project]/src/components/snapshot-diff.tsx",
-                            lineNumber: 106,
+                            lineNumber: 122,
                             columnNumber: 13
                         }, this))
                 }, void 0, false, {
                     fileName: "[project]/src/components/snapshot-diff.tsx",
-                    lineNumber: 104,
+                    lineNumber: 120,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/src/components/snapshot-diff.tsx",
-            lineNumber: 84,
+            lineNumber: 100,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/src/components/snapshot-diff.tsx",
-        lineNumber: 83,
+        lineNumber: 99,
         columnNumber: 5
     }, this);
 }

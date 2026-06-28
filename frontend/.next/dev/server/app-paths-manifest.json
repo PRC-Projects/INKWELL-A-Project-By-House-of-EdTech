@@ -12,5 +12,6 @@
   "/dashboard/page": "app/dashboard/page.js",
   "/documents/[id]/page": "app/documents/[id]/page.js",
   "/login-form/page": "app/login-form/page.js",
-  "/login/route": "app/login/route.js"
+  "/login/route": "app/login/route.js",
+  "/page": "app/page.js"
 }

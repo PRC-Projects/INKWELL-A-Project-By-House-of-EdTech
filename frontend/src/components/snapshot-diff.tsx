@@ -46,7 +46,23 @@ export function SnapshotDiff({
       .then(setData);
   }, [documentId, snapshotId]);
 
-  if (!data) return null;
+  if (!data) {
+    return (
+      <div
+        data-testid="snapshot-diff-modal"
+        className="fixed inset-0 z-40 bg-foreground/40 flex items-center justify-center p-4"
+        onClick={onClose}
+      >
+        <div
+          data-testid="diff-loading"
+          className="paper-card rounded-lg px-6 py-4 text-sm text-muted-foreground"
+          onClick={(e) => e.stopPropagation()}
+        >
+          Loading diff…
+        </div>
+      </div>
+    );
+  }
   const diff = diffLines(data.snapshot.text, data.current.text);
 
   const explainDiff = async () => {
