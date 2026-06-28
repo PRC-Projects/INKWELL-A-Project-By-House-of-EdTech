@@ -4,15 +4,33 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, ScanText, SpellCheck2 } from "lucide-react";
 import { toast } from "sonner";
 import * as Y from "yjs";
+import { useClickOutside } from "@/lib/use-click-outside";
 
 export function AIAssistant({ doc, canEdit }: { doc: Y.Doc | null; canEdit: boolean }) {
   const [open, setOpen] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState<"summarize" | "grammar" | null>(null);
+  const ref = useClickOutside<HTMLDivElement>(open, () => setOpen(false));
+
+  const docText = () => {
+    if (!doc) return "";
+    // Try Tiptap XmlFragment, then legacy Y.Text "content".
+    const frag = doc.getXmlFragment("default");
+    let t = "";
+    const walk = (n: Y.XmlFragment | Y.XmlElement) => {
+      for (const c of n.toArray()) {
+        if (c instanceof Y.XmlText) t += c.toString();
+        else if (c instanceof Y.XmlElement) { walk(c); t += "\n"; }
+      }
+    };
+    walk(frag);
+    t = t.trim();
+    if (t) return t;
+    return doc.getText("content").toString().trim();
+  };
 
   const run = async (action: "summarize" | "grammar") => {
-    if (!doc) return;
-    const text = doc.getText("content").toString().trim();
+    const text = docText();
     if (text.length === 0) {
       toast.message("Nothing to analyze yet — start writing first.");
       return;
@@ -48,7 +66,7 @@ export function AIAssistant({ doc, canEdit }: { doc: Y.Doc | null; canEdit: bool
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={ref}>
       <Button size="sm" onClick={() => setOpen((v) => !v)} data-testid="ai-toggle">
         <Sparkles className="h-4 w-4" /> AI Assistant
       </Button>

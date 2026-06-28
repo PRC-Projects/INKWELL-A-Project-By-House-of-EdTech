@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Share2, UserMinus } from "lucide-react";
 import { toast } from "sonner";
+import { useClickOutside } from "@/lib/use-click-outside";
 
 interface Member {
   id: string;
@@ -23,6 +24,7 @@ export function ShareDialog({ documentId, isOwner, owner, memberships, onChange 
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"EDITOR" | "VIEWER">("EDITOR");
   const [busy, setBusy] = useState(false);
+  const ref = useClickOutside<HTMLDivElement>(open, () => setOpen(false));
 
   if (!isOwner) return null;
 
@@ -52,7 +54,7 @@ export function ShareDialog({ documentId, isOwner, owner, memberships, onChange 
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={ref}>
       <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)} data-testid="share-toggle">
         <Share2 className="h-4 w-4" /> Share
       </Button>

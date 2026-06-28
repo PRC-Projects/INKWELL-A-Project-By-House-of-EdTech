@@ -354,21 +354,7 @@ __turbopack_context__.s([
     "plainTextFromState",
     ()=>plainTextFromState
 ]);
-/**
- * Server-side Yjs helpers. We use plain Yjs (no provider) to merge incoming
- * client updates against the authoritative document state stored in Postgres.
- *
- * Race-condition strategy:
- *   1. Each client tags every update with (clientId, clock). The `Update`
- *      table has a UNIQUE constraint on (documentId, clientId, clock) so the
- *      same update can never be applied twice — Postgres rejects duplicates.
- *   2. The merge transaction reads the current Document.yjsState with FOR
- *      UPDATE-style isolation (`SERIALIZABLE`), applies all new updates, and
- *      writes back. CRDT properties guarantee commutativity, so the order in
- *      which concurrent transactions land does not change the final state.
- *   3. We never overwrite — we always merge: even if Client B's transaction
- *      committed first, Client A's updates are applied on top of B's result.
- */ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$yjs$2f$dist$2f$yjs$2e$mjs__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/yjs/dist/yjs.mjs [app-route] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$yjs$2f$dist$2f$yjs$2e$mjs__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/yjs/dist/yjs.mjs [app-route] (ecmascript)");
 ;
 function base64ToBytes(b64) {
     return new Uint8Array(Buffer.from(b64, "base64"));
@@ -398,9 +384,44 @@ function diffForClient(serverState, clientStateVectorB64) {
     const sv = clientStateVectorB64 ? base64ToBytes(clientStateVectorB64) : undefined;
     return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$yjs$2f$dist$2f$yjs$2e$mjs__$5b$app$2d$route$5d$__$28$ecmascript$29$__["encodeStateAsUpdate"](doc, sv);
 }
+/**
+ * Best-effort plain-text extraction from a Y.Doc that may hold either:
+ *  (a) Tiptap content in Y.XmlFragment "default" (new format), OR
+ *  (b) Legacy plain text in Y.Text "content" (older docs created before
+ *      the Tiptap migration).
+ *
+ * Used for AI prompts and the snapshot diff modal. We walk the XmlFragment
+ * collecting text nodes and inserting newlines after block elements.
+ */ const BLOCK_NAMES = new Set([
+    "paragraph",
+    "heading",
+    "blockquote",
+    "codeBlock",
+    "listItem",
+    "bulletList",
+    "orderedList",
+    "hardBreak"
+]);
+function xmlNodeText(node) {
+    if (node instanceof __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$yjs$2f$dist$2f$yjs$2e$mjs__$5b$app$2d$route$5d$__$28$ecmascript$29$__["XmlText"]) return node.toString();
+    if (node instanceof __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$yjs$2f$dist$2f$yjs$2e$mjs__$5b$app$2d$route$5d$__$28$ecmascript$29$__["XmlElement"] || node instanceof __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$yjs$2f$dist$2f$yjs$2e$mjs__$5b$app$2d$route$5d$__$28$ecmascript$29$__["XmlFragment"]) {
+        let out = "";
+        const children = node.toArray();
+        for (const c of children){
+            out += xmlNodeText(c);
+        }
+        if (node instanceof __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$yjs$2f$dist$2f$yjs$2e$mjs__$5b$app$2d$route$5d$__$28$ecmascript$29$__["XmlElement"] && BLOCK_NAMES.has(node.nodeName)) out += "\n";
+        return out;
+    }
+    return "";
+}
 function plainTextFromState(state) {
     const doc = new __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$yjs$2f$dist$2f$yjs$2e$mjs__$5b$app$2d$route$5d$__$28$ecmascript$29$__["Doc"]();
     if (state && state.length > 0) __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$yjs$2f$dist$2f$yjs$2e$mjs__$5b$app$2d$route$5d$__$28$ecmascript$29$__["applyUpdate"](doc, state);
+    const frag = doc.getXmlFragment("default");
+    const tiptap = xmlNodeText(frag).replace(/\n{3,}/g, "\n\n").trim();
+    if (tiptap.length > 0) return tiptap;
+    // Legacy fallback
     return doc.getText("content").toString();
 }
 }),

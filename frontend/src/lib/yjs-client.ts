@@ -127,25 +127,41 @@ export function useYDoc(documentId: string) {
     });
 
     const onAware = () => {
-      const states = Array.from(provider.awareness?.getStates().values() ?? []) as Array<{
-        user?: PresenceUser; caret?: number | null;
-      }>;
+      // Iterate awareness states keyed by clientID — each connected tab is one
+      // clientID. We exclude OUR clientID and dedupe by remote clientID, so the
+      // "live" count reflects actual connected peers.
+      const aw = provider.awareness;
+      if (!aw) { setPresence([]); return; }
+      const selfClientId = aw.clientID;
       const out: PresenceUser[] = [];
-      const seen = new Set<string>();
-      for (const s of states) {
-        if (!s.user || seen.has(s.user.id)) continue;
-        seen.add(s.user.id);
-        out.push({ ...s.user, caret: s.caret ?? null });
-      }
-      // Exclude self
-      setPresence(out.filter((p) => p.id !== uid));
+      aw.getStates().forEach((state, clientId) => {
+        if (clientId === selfClientId) return;
+        const s = state as { user?: { id: string; name: string; color: string }; caret?: number | null };
+        // CollaborationCursor uses `user`; we also fall back to `cursor` legacy.
+        const userField = s.user;
+        if (!userField) return;
+        out.push({
+          id: userField.id || String(clientId),
+          name: userField.name,
+          color: userField.color,
+          caret: s.caret ?? null,
+        });
+      });
+      setPresence(out);
     };
     provider.awareness?.on("change", onAware);
+    provider.awareness?.on("update", onAware);
+    // Also subscribe to provider-level events that fire on remote awareness frames.
+    provider.on("awarenessChange", onAware);
+    provider.on("awarenessUpdate", onAware);
     onAware();
 
     providerRef.current = provider;
     return () => {
       provider.awareness?.off("change", onAware);
+      provider.awareness?.off("update", onAware);
+      provider.off("awarenessChange", onAware);
+      provider.off("awarenessUpdate", onAware);
       provider.off("connect", handleConnect);
       provider.off("disconnect", handleDisconnect);
       provider.off("close", handleDisconnect);

@@ -1,5 +1,8 @@
 {
+  "/api/ai/route": "app/api/ai/route.js",
   "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/api/auth/register/route": "app/api/auth/register/route.js",
+  "/api/documents/[id]/permissions/route": "app/api/documents/[id]/permissions/route.js",
   "/api/documents/[id]/route": "app/api/documents/[id]/route.js",
   "/api/documents/[id]/sync/route": "app/api/documents/[id]/sync/route.js",
   "/api/documents/new/route": "app/api/documents/new/route.js",

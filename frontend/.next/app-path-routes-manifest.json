@@ -1,0 +1,21 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/ai/route": "/api/ai",
+  "/api/auth/[...nextauth]/route": "/api/auth/[...nextauth]",
+  "/api/auth/register/route": "/api/auth/register",
+  "/api/documents/[id]/permissions/route": "/api/documents/[id]/permissions",
+  "/api/documents/[id]/route": "/api/documents/[id]",
+  "/api/documents/[id]/snapshots/[snapshotId]/restore/route": "/api/documents/[id]/snapshots/[snapshotId]/restore",
+  "/api/documents/[id]/snapshots/[snapshotId]/route": "/api/documents/[id]/snapshots/[snapshotId]",
+  "/api/documents/[id]/snapshots/route": "/api/documents/[id]/snapshots",
+  "/api/documents/[id]/sync/route": "/api/documents/[id]/sync",
+  "/api/documents/new/route": "/api/documents/new",
+  "/api/documents/route": "/api/documents",
+  "/dashboard/page": "/dashboard",
+  "/documents/[id]/page": "/documents/[id]",
+  "/login-form/page": "/login-form",
+  "/login/route": "/login",
+  "/page": "/",
+  "/register/page": "/register"
+}

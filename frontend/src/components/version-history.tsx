@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import * as Y from "yjs";
 import { base64ToBytes } from "@/lib/yjs-client";
 import { SnapshotDiff } from "@/components/snapshot-diff";
+import { useClickOutside } from "@/lib/use-click-outside";
 
 interface Snapshot {
   id: string;
@@ -29,6 +30,7 @@ export function VersionHistory({
   const [label, setLabel] = useState("");
   const [creating, setCreating] = useState(false);
   const [diffId, setDiffId] = useState<string | null>(null);
+  const ref = useClickOutside<HTMLDivElement>(open, () => setOpen(false));
 
   const load = async () => {
     const r = await fetch(`/api/documents/${documentId}/snapshots`);
@@ -78,7 +80,7 @@ export function VersionHistory({
   };
 
   return (
-    <div>
+    <div ref={ref}>
       <Button
         size="sm"
         variant="outline"
