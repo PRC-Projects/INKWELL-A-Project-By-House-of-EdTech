@@ -94,6 +94,7 @@ __turbopack_context__.s([
     "useYDoc",
     ()=>useYDoc
 ]);
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$build$2f$polyfills$2f$process$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = /*#__PURE__*/ __turbopack_context__.i("[project]/node_modules/next/dist/build/polyfills/process.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/compiled/react/index.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$yjs$2f$dist$2f$yjs$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/yjs/dist/yjs.mjs [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$y$2d$indexeddb$2f$src$2f$y$2d$indexeddb$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/y-indexeddb/src/y-indexeddb.js [app-client] (ecmascript)");
@@ -183,8 +184,12 @@ function useYDoc(documentId) {
             // One provider per doc — but the hook may be invoked from multiple
             // components for the same doc. Use the cache to enforce singleton.
             let provider = doc._hp;
+            // For Vercel / multi-origin deploys: point at a separately-hosted Hocuspocus
+            // (Railway / Fly.io / Render) via NEXT_PUBLIC_HOCUS_URL. Default = same-origin
+            // /api/hocus which is what the FastAPI sidecar proxies in dev / Kubernetes.
+            const overrideUrl = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$build$2f$polyfills$2f$process$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"].env.NEXT_PUBLIC_HOCUS_URL;
             const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
-            const url = `${wsProto}//${window.location.host}/api/hocus`;
+            const url = overrideUrl && overrideUrl.length > 0 ? overrideUrl : `${wsProto}//${window.location.host}/api/hocus`;
             const u = session.user;
             const uid = u.id || u.email || "anon";
             if (!provider) {

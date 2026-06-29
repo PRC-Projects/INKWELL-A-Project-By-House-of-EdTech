@@ -155,6 +155,10 @@ function useYDoc(documentId) {
         // One provider per doc — but the hook may be invoked from multiple
         // components for the same doc. Use the cache to enforce singleton.
         let provider;
+        // For Vercel / multi-origin deploys: point at a separately-hosted Hocuspocus
+        // (Railway / Fly.io / Render) via NEXT_PUBLIC_HOCUS_URL. Default = same-origin
+        // /api/hocus which is what the FastAPI sidecar proxies in dev / Kubernetes.
+        const overrideUrl = undefined;
         const wsProto = undefined;
         const url = undefined;
         const u = undefined;
