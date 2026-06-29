@@ -12,15 +12,15 @@ type Ctx = { params: Promise<{ id: string; snapshotId: string }> };
  * Restore a snapshot.
  *
  * Strategy:
- *   1. Read the snapshot's saved Y.Doc binary state.
- *   2. Build a fresh Y.Doc from the snapshot, encode it as a full update.
- *   3. Also apply that update on top of the CURRENT doc to ensure all clients
- *      that have made offline edits since the snapshot still see a converged
- *      state — CRDT properties guarantee no information is lost; concurrent
- *      edits remain in history and merge deterministically with the snapshot
- *      ops we are about to broadcast.
- *   4. Persist as a regular Update row so the standard sync pipeline relays
- *      it to other clients on their next pull.
+ * 1. Read the snapshot's saved Y.Doc binary state.
+ * 2. Build a fresh Y.Doc from the snapshot, encode it as a full update.
+ * 3. Also apply that update on top of the CURRENT doc to ensure all clients
+ * that have made offline edits since the snapshot still see a converged
+ * state — CRDT properties guarantee no information is lost; concurrent
+ * edits remain in history and merge deterministically with the snapshot
+ * ops we are about to broadcast.
+ * 4. Persist as a regular Update row so the standard sync pipeline relays
+ * it to other clients on their next pull.
  *
  * For Tiptap-managed docs we additionally clear the current XmlFragment so
  * the visible content matches the snapshot exactly (users expect "restore"
@@ -61,7 +61,8 @@ export async function POST(_: Request, { params }: Ctx) {
           // Replace live fragment children with cloned snapshot children.
           if (liveFrag.length > 0) liveFrag.delete(0, liveFrag.length);
           for (const child of snapFrag.toArray()) {
-            liveFrag.push([cloneXml(child)]);
+            // FIX: Explicitly cast 'child' before passing it into cloneXml
+            liveFrag.push([cloneXml(child as Y.XmlElement | Y.XmlText)]);
           }
         }
         // --- Legacy Y.Text "content" ---
